@@ -305,7 +305,7 @@ if(!S.months)S.months={};if(!S.dirty)S.dirty={};
 var view={tab:'heute',date:todayIso(),day:null,exSel:null,metric:'top',extra:{},lastSet:0,setup:null,planMsg:''};
 
 function retireAll(){var rt=S.config.retired||(S.config.retired=[]);(S.config.days||[]).forEach(function(d){d.ex.forEach(function(e){if(hasHistory(e.id)&&!rt.some(function(x){return x.id===e.id}))rt.push({id:e.id,name:e.name})})})}
-function migrate(){var c=S.config;if((c.v||1)>=2)return false;if(!c.perWeek&&c.days&&c.days.length){retireAll();c.days=[];c.restWeeks={}}if(!c.days)c.days=[];c.v=2;c.t=Date.now();S.dirty.config=1;return true}
+function migrate(){var c=S.config;if((c.v||1)>=2)return false;if(!c.perWeek&&c.days&&c.days.length){retireAll();c.days=[];c.restWeeks={}}if(!c.days)c.days=[];c.v=2;c.t=(c.t||0)+1;S.dirty.config=1;return true}
 function saveLocal(){try{localStorage.setItem(KEY,JSON.stringify(S))}catch(e){}}
 if(migrate())saveLocal();
 function touch(key){var o=key==='config'?S.config:S.months[key];if(!o)return;o.t=Date.now();S.dirty[key]=1;saveLocal();scheduleFlush()}
@@ -749,7 +749,7 @@ var auth=(function(){try{var a=JSON.parse(localStorage.getItem('trainingslog.aut
 var cloud=null,flushing=false,again=false,ft=null;
 var SYNC={ok:'Gesichert',saving:'Speichert …',loading:'Lädt …',local:'Nicht angemeldet',error:'Nicht gesichert, neuer Versuch folgt'};
 function setSync(s){var el=$('#sync');el.dataset.s=s;$('#syncText').textContent=SYNC[s]||''}
-function scheduleFlush(){if(!cloud)return;setSync('saving');clearTimeout(ft);ft=setTimeout(flush,1200)}
+function scheduleFlush(){if(!cloud)return;setSync('saving');clearTimeout(ft);ft=setTimeout(flush,500)}
 function docId(key){return key==='config'?'config':'m-'+key}
 function flush(){
   if(!cloud)return;if(flushing){again=true;return}
@@ -770,9 +770,9 @@ function pull(){
     clearTimeout(timer);var seen={},changed=false;
     snap.docs.forEach(function(doc){var data=doc.data();if(!data)return;var key=doc.id==='config'?'config':doc.id.indexOf('m-')===0?doc.id.slice(2):null;if(!key)return;
       seen[key]=1;var local=key==='config'?S.config:S.months[key];
-      if(!local||(data.t||0)>(local.t||0)){var copy=JSON.parse(JSON.stringify(data));
+      if(!local||!S.dirty[key]||(data.t||0)>(local.t||0)){var copy=JSON.parse(JSON.stringify(data));
         if(key==='config'){if(copy.days)S.config=copy}else S.months[key]=copy;delete S.dirty[key];changed=true}
-      else if((local.t||0)>(data.t||0))S.dirty[key]=1});
+      });
     if(!seen.config&&S.config.t)S.dirty.config=1;
     Object.keys(S.months).forEach(function(k){if(!seen[k]&&S.months[k].t)S.dirty[k]=1});
     if(migrate())changed=true;
@@ -783,7 +783,8 @@ function pull(){
 var SB_URL='https://chgodrkfloyppmtbkitt.supabase.co',SB_KEY='sb_publishable_GBjvdIMR-cTWMlyBnOxLrQ_grcKWGLh',AKEY='trainingslog.auth';
 function saveAuth(){try{if(auth)localStorage.setItem(AKEY,JSON.stringify(auth));else localStorage.removeItem(AKEY)}catch(e){}}
 function sbFetch(path,method,body,tok,extra){var hd={apikey:SB_KEY,'Content-Type':'application/json'};if(tok)hd.Authorization='Bearer '+tok;if(extra)for(var k in extra)hd[k]=extra[k];
-  return fetch(SB_URL+path,{method:method,headers:hd,body:body?JSON.stringify(body):undefined}).then(function(r){return r.text().then(function(t){var j=null;try{j=t?JSON.parse(t):null}catch(e){}
+  var bs=body?JSON.stringify(body):undefined;
+  return fetch(SB_URL+path,{method:method,headers:hd,body:bs,keepalive:!!bs&&bs.length<60000}).then(function(r){return r.text().then(function(t){var j=null;try{j=t?JSON.parse(t):null}catch(e){}
     if(!r.ok){var er=new Error((j&&(j.msg||j.error_description||j.message))||('Fehler '+r.status));er.status=r.status;er.code=j&&(j.error_code||j.code||j.error);throw er}return j})})}
 function setSession(j){auth={access_token:j.access_token,refresh_token:j.refresh_token,expires_at:j.expires_at||Math.floor(Date.now()/1000)+(j.expires_in||3600),user:{id:j.user.id,email:j.user.email}};saveAuth()}
 function signedOut(msg){auth=null;saveAuth();cloud=null;clearTimeout(ft);setSync('local');authMsg=msg||'';if(view.tab==='plan'||view.tab==='heute')render()}
