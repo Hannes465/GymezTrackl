@@ -304,7 +304,10 @@ var S=(function(){try{var raw=localStorage.getItem(KEY);if(raw){var o=JSON.parse
 if(!S.months)S.months={};if(!S.dirty)S.dirty={};
 var view={tab:'heute',date:todayIso(),day:null,exSel:null,metric:'top',extra:{},lastSet:0,setup:null,planMsg:''};
 
+function retireAll(){var rt=S.config.retired||(S.config.retired=[]);(S.config.days||[]).forEach(function(d){d.ex.forEach(function(e){if(hasHistory(e.id)&&!rt.some(function(x){return x.id===e.id}))rt.push({id:e.id,name:e.name})})})}
+function migrate(){var c=S.config;if((c.v||1)>=2)return false;if(!c.perWeek&&c.days&&c.days.length){retireAll();c.days=[];c.restWeeks={}}if(!c.days)c.days=[];c.v=2;c.t=Date.now();S.dirty.config=1;return true}
 function saveLocal(){try{localStorage.setItem(KEY,JSON.stringify(S))}catch(e){}}
+if(migrate())saveLocal();
 function touch(key){var o=key==='config'?S.config:S.months[key];if(!o)return;o.t=Date.now();S.dirty[key]=1;saveLocal();scheduleFlush()}
 function month(date,create){var k=date.slice(0,7),m=S.months[k];if(!m&&create)m=S.months[k]={w:{},p:{},t:0};if(m){if(!m.w)m.w={};if(!m.p)m.p={}}return m}
 function sess(date,create){var m=month(date,create);if(!m)return null;var s=m.w[date];if(!s&&create)s=m.w[date]={day:view.day,sets:{}};if(s&&!s.sets)s.sets={};return s}
@@ -423,7 +426,7 @@ function exCard(ex,s,date){
 function weekStrip(){var mon=mondayOf(view.date),plan=weekPlan(mon);
   return'<div class="week" role="group" aria-label="Diese Woche">'+weekDates(mon).map(function(d){var s=sess(d),dn=!!(s&&allDone(s).length),id=pickDay(d),dd=id?dayById(id):null;
     return'<button class="wk'+(d===view.date?' cur':'')+(dn?' dn':'')+'" data-act="goto" data-date="'+d+'"'+(dd?' data-day="'+col(dd)+'"':'')+(d>weekEnd()?' disabled':'')+
-      ' aria-label="'+esc(dLong.format(parse(d))+': '+(dd?dd.name:'Ruhetag')+(dn?', erledigt':''))+'"><span>'+WD[parse(d).getDay()]+'</span><b>'+(dd?esc(dd.short||dd.name):'Ruhe')+'</b></button>'}).join('')+'</div>'}
+      ' aria-label="'+esc(dLong.format(parse(d))+': '+(dd?dd.name:'Ruhetag')+(dn?', erledigt':''))+'"><span>'+WD[parse(d).getDay()]+'</span><b>'+(dd?esc(dd.short||dd.name||'Tag'):(S.config.days.length?'Ruhe':'–'))+'</b></button>'}).join('')+'</div>'}
 function installed(){try{return navigator.standalone===true||window.matchMedia('(display-mode: standalone)').matches}catch(e){return false}}
 function flag(k,set){try{if(set)localStorage.setItem('trainingslog.'+k,'1');return localStorage.getItem('trainingslog.'+k)==='1'}catch(e){return false}}
 function topNotes(){var h=auth?'':'<p class="note">Nicht angemeldet, deine Einträge liegen nur auf diesem Gerät. <a class="link" href="#plan">Anmelden</a></p>';
@@ -431,8 +434,10 @@ function topNotes(){var h=auth?'':'<p class="note">Nicht angemeldet, deine Eintr
     '<li>„Zum Home-Bildschirm“ wählen.</li><li>„Als Web-App öffnen“ eingeschaltet lassen und auf „Hinzufügen“ tippen.</li></ol>'+
     '<p class="note">Danach startest du die App über das Icon, im Vollbild und ohne Browserleiste.</p><div><button class="btn sec" data-act="a2hsok">Verstanden</button></div></div>';
   return h}
+function chooser(){return'<div class="card stack"><h1 class="sect">Noch kein Trainingsplan</h1><p class="note">Dein Kalender ist leer. Trag deinen Plan selbst ein oder lass dir einen vorschlagen.</p>'+
+  '<div class="rowbtns"><button class="btn" data-act="dayadd">Selbst eintragen</button><button class="btn sec" data-act="suauto">Plan vorschlagen lassen</button></div></div>'}
 function wizard(){var su=view.setup||(view.setup={n:0,eq:{}});
-  return'<div class="card stack"><h1 class="sect">Dein Trainingsplan</h1><p class="note">Zwei Angaben, daraus entsteht dein Plan. Danach kannst du jede Übung ändern.</p>'+
+  return'<div class="card stack"><div><button class="link" data-act="suback">Zurück</button></div><h1 class="sect">Dein Trainingsplan</h1><p class="note">Zwei Angaben, daraus entsteht dein Plan. Danach kannst du jede Übung ändern.</p>'+
     '<h2 class="q">Wie oft pro Woche willst du trainieren?</h2><div class="seg">'+[2,3,4,5,6].map(function(n){return'<button data-act="sun" data-n="'+n+'" aria-pressed="'+(su.n===n)+'">'+n+' ×</button>'}).join('')+'</div>'+
     '<p class="note">'+(su.n?SPLITINFO[su.n]:'Tippe eine Zahl an.')+'</p>'+
     '<h2 class="q">Was gibt es in deinem Gym?</h2><div class="eq">'+EQ.map(function(e){return'<button data-act="sueq" data-k="'+e[0]+'" aria-pressed="'+!!su.eq[e[0]]+'">'+e[1]+'</button>'}).join('')+'</div>'+
@@ -456,7 +461,7 @@ function dayText(date){
   pl.forEach(function(x){L.push('  '+(x.l||'Protein')+': '+fmt(x.g)+' g')});
   return L.join('\n')}
 function renderToday(){
-  if(!S.config.days.length){document.body.dataset.day='pull';$('#view').innerHTML=topNotes()+wizard();return}
+  if(!S.config.days.length){document.body.dataset.day='pull';$('#view').innerHTML=topNotes()+dateBar()+weekStrip()+(view.setup?wizard():chooser());return}
   if(view.day===null)view.day=pickDay(view.date);
   var day=view.day?dayById(view.day):null,s=sess(view.date);
   document.body.dataset.day=day?col(day):'pull';
@@ -565,9 +570,10 @@ function renderProtein(){
 function renderPlan(){
   var h=kontoCard()+'<h1 class="sect">Trainingsplan</h1><p class="note">Das ist deine Standardwoche. Einen einzelnen Ruhetag verlegst du im Tab Training.</p>';
   if(view.planMsg){h+='<p class="tip">'+esc(view.planMsg)+'</p>';view.planMsg=''}
-  if(!S.config.days.length)h+='<div class="card stack"><p>Du hast noch keinen Plan.</p><div><a class="btn" href="#heute" style="text-decoration:none;display:inline-block">Plan erstellen</a></div></div>';
+  if(!S.config.days.length)h+='<div class="card stack"><p>Du hast noch keinen Plan.</p><p class="note">Leg unten deinen ersten Trainingstag an oder lass dir einen Plan vorschlagen.</p><div><button class="btn sec" data-act="suauto">Plan vorschlagen lassen</button></div></div>';
   S.config.days.forEach(function(d){
-    h+='<section class="card pday" data-id="'+d.id+'" data-day="'+col(d)+'"><h2>'+esc(d.name)+'</h2>'+
+    h+='<section class="card pday" data-id="'+d.id+'" data-day="'+col(d)+'"><h2>'+esc(d.name||'Neuer Tag')+'</h2>'+
+      '<label class="lab" for="dn-'+d.id+'">Name des Trainingstags<input class="field" id="dn-'+d.id+'" data-pf="name" value="'+esc(d.name)+'" placeholder="z. B. Push, Oberkörper, Tag A"></label>'+
       '<label class="lab" for="f-'+d.id+'">Fokus<input class="field" id="f-'+d.id+'" data-pf="focus" value="'+esc(d.focus)+'" placeholder="z. B. Brust, Schultern, Trizeps"></label>'+
       '<div class="wds" role="group" aria-label="Wochentage">'+[1,2,3,4,5,6,0].map(function(w){return'<button data-act="wd" data-w="'+w+'" aria-pressed="'+(d.weekdays.indexOf(w)>=0)+'">'+WD[w]+'</button>'}).join('')+'</div>';
     var exs=activeEx(d);
@@ -580,7 +586,8 @@ function renderPlan(){
         '<button class="ib" data-act="exup" aria-label="Nach oben"'+(i===0?' disabled':'')+'>↑</button>'+
         '<button class="ib" data-act="exdown" aria-label="Nach unten"'+(i===exs.length-1?' disabled':'')+'>↓</button>'+
         '<button class="ib" data-act="exdel" aria-label="Übung entfernen">×</button></div></div>'});
-    h+='<div><button class="ghost" data-act="exadd">+ Übung</button></div></section>'});
+    h+='<div class="rowbtns"><button class="ghost" data-act="exadd">+ Übung</button><button class="ghost" data-act="daydel">Tag löschen</button></div></section>'});
+  h+='<div><button class="btn" data-act="dayadd">+ Trainingstag</button></div>';
   h+='<div class="card stack"><h2 class="sect">Einstellungen</h2>'+
     '<label class="lab" for="stepSel">Schritt der Plus- und Minus-Tasten beim Gewicht<select id="stepSel">'+[1,1.25,2.5,5].map(function(v){return'<option value="'+v+'"'+(S.config.step===v?' selected':'')+'>'+fmt(v)+' kg</option>'}).join('')+'</select></label>'+
     '<div><button class="btn sec" data-act="replan">Plan neu erstellen</button></div>'+
@@ -591,6 +598,7 @@ function renderPlan(){
     '<div id="impGo" hidden><button class="btn" data-act="impgo">Jetzt alle Einträge ersetzen</button></div>'+
     '<p class="note" id="backupNote"></p></div>';
   $('#view').innerHTML=h;
+  if(view.focusId){var fe0=document.getElementById(view.focusId);view.focusId=null;if(fe0){fe0.scrollIntoView({block:'center'});try{fe0.focus({preventScroll:true})}catch(e){}}}
 }
 
 function render(){
@@ -654,14 +662,20 @@ document.addEventListener('click',function(ev){
       if(arr[i]&&arr[i].d&&$('#rest')&&view.date===todayIso())armRest();else{cancelBeep();restAlerted=true}break;
     case'addset':card=b.closest('.ex');exId=card.dataset.ex;var fx=findEx(exId);s=sess(view.date);
       view.extra[exId]=Math.max(fx?fx.ex.sets:0,s&&s.sets[exId]?s.sets[exId].length:0,view.extra[exId]||0)+1;renderToday();break;
+    case'suauto':view.setup={n:S.config.perWeek||0,eq:JSON.parse(JSON.stringify(S.config.eq||{}))};if(view.tab!=='heute')location.hash='#heute';else renderToday();break;
+    case'suback':view.setup=null;renderToday();break;
+    case'dayadd':var nd={id:rid(),name:'',c:['push','pull','legs','c4','c5'][S.config.days.length%5],focus:'',weekdays:[],ex:[]};S.config.days.push(nd);S.config.v=2;touch('config');view.day=null;view.setup=null;
+      view.focusId='dn-'+nd.id;if(view.tab!=='plan')location.hash='#plan';else renderPlan();break;
+    case'daydel':if(b.dataset.sure!=='1'){b.dataset.sure='1';b.textContent='Wirklich löschen?';setTimeout(function(){if(b.isConnected){b.dataset.sure='';b.textContent='Tag löschen'}},3000);break}
+      var did=b.closest('.pday').dataset.id;retireAll();S.config.days=S.config.days.filter(function(d){return d.id!==did});touch('config');view.day=null;renderPlan();break;
     case'a2hsok':flag('a2hs',true);render();break;
     case'sun':view.setup.n=+b.dataset.n;renderToday();break;
     case'sueq':view.setup.eq[b.dataset.k]=!view.setup.eq[b.dataset.k];renderToday();break;
     case'sueqall':var allOn=EQ.every(function(e){return view.setup.eq[e[0]]});EQ.forEach(function(e){view.setup.eq[e[0]]=!allOn});renderToday();break;
-    case'mkplan':if(!view.setup||!view.setup.n)break;S.config.days=buildPlan(view.setup.n,view.setup.eq);S.config.eq=view.setup.eq;S.config.perWeek=view.setup.n;S.config.restWeeks={};
+    case'mkplan':if(!view.setup||!view.setup.n)break;S.config.days=buildPlan(view.setup.n,view.setup.eq);S.config.v=2;S.config.eq=view.setup.eq;S.config.perWeek=view.setup.n;S.config.restWeeks={};
       touch('config');view.setup=null;view.day=null;view.planMsg='Dein Plan steht. Übungen, Sätze und Tage kannst du hier anpassen.';location.hash='#plan';break;
     case'replan':if(b.dataset.sure!=='1'){b.dataset.sure='1';b.textContent='Wirklich? Nochmal tippen';setTimeout(function(){if(b.isConnected){b.dataset.sure='';b.textContent='Plan neu erstellen'}},3000);break}
-      var rt=S.config.retired||(S.config.retired=[]);S.config.days.forEach(function(d){d.ex.forEach(function(e){if(hasHistory(e.id)&&!rt.some(function(x){return x.id===e.id}))rt.push({id:e.id,name:e.name})})});
+      retireAll();
       view.setup={n:S.config.perWeek||0,eq:JSON.parse(JSON.stringify(S.config.eq||{}))};S.config.days=[];S.config.restWeeks={};touch('config');view.day=null;location.hash='#heute';break;
     case'xday':var xt=dayText(view.date),xn=$('#xNote'),fn='training-'+view.date+'.txt';
       if(STANDALONE){try{var xf=new File([xt],fn,{type:'text/plain'});if(navigator.canShare&&navigator.canShare({files:[xf]})){navigator.share({files:[xf]}).catch(function(){});break}}catch(e){}
@@ -718,7 +732,8 @@ document.addEventListener('change',function(ev){
   if(t.id==='exSel'){view.exSel=t.value;renderStats();return}
   if(t.id==='goalIn'){var g=num(t.value);if(g!=null&&g>=0){S.config.proteinGoal=Math.round(g);touch('config')}renderProtein();return}
   if(t.id==='stepSel'){S.config.step=parseFloat(t.value);touch('config');return}
-  if(t.dataset.pf){var d=dayById(t.closest('.pday').dataset.id);d[t.dataset.pf]=t.value.trim();touch('config');return}
+  if(t.dataset.pf){var d=dayById(t.closest('.pday').dataset.id);d[t.dataset.pf]=t.value.trim();
+    if(t.dataset.pf==='name'){delete d.short;t.closest('.pday').querySelector('h2').textContent=d.name||'Neuer Tag'}touch('config');return}
   if(t.dataset.xf){var fe=findEx(t.closest('.pex').dataset.ex);if(!fe)return;var k=t.dataset.xf;
     if(k==='name')fe.ex.name=t.value.trim();else{var n=Math.round(num(t.value)||0);n=Math.max(1,Math.min(k==='sets'?12:100,n));fe.ex[k]=n;
       if(fe.ex.hi<fe.ex.lo){if(k==='lo')fe.ex.hi=fe.ex.lo;else fe.ex.lo=fe.ex.hi}
@@ -760,6 +775,7 @@ function pull(){
       else if((local.t||0)>(data.t||0))S.dirty[key]=1});
     if(!seen.config&&S.config.t)S.dirty.config=1;
     Object.keys(S.months).forEach(function(k){if(!seen[k]&&S.months[k].t)S.dirty[k]=1});
+    if(migrate())changed=true;
     saveLocal();if(changed){view.day=null;var a=document.activeElement;if(!a||a.tagName!=='INPUT')render()}
     if(Object.keys(S.dirty).length)flush();else setSync('ok');
   },function(){clearTimeout(timer);setSync('error')});
