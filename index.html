@@ -62,7 +62,7 @@ h1,h2,h3,p{margin:0}
 .brand b{color:var(--day)}
 .sync{display:flex;align-items:center;gap:6px;font-size:12px;color:var(--muted)}
 .sync i{width:8px;height:8px;border-radius:50%;background:var(--muted)}
-.sync[data-s="ok"] i,.sync[data-s="local"] i{background:var(--good)}
+.sync[data-s="ok"] i{background:var(--good)}
 .sync[data-s="saving"] i,.sync[data-s="loading"] i{background:var(--legs)}
 .sync[data-s="error"] i{background:var(--push)}
 
@@ -103,6 +103,7 @@ main{overscroll-behavior:contain}
 .chip[data-d="push"]{border-bottom-color:var(--push)}
 .chip[data-d="pull"]{border-bottom-color:var(--pull)}
 .chip[data-d="legs"]{border-bottom-color:var(--legs)}
+.chip[data-arm="1"]{font-size:14px;letter-spacing:.03em;border-color:var(--ink)}
 .chip[aria-pressed="true"]{background:var(--day);color:var(--on-day);border-color:var(--day)}
 
 .dayhead{display:flex;flex-direction:column;gap:8px}
@@ -288,7 +289,7 @@ function setRest(date){var mon=mondayOf(date),plan=weekPlan(mon),rest=weekDates(
   if(!S.config.restWeeks)S.config.restWeeks={};S.config.restWeeks[mon]=rest;touch('config')}
 function clearRest(date){var mon=mondayOf(date);if(S.config.restWeeks&&S.config.restWeeks[mon]){delete S.config.restWeeks[mon];touch('config')}}
 function weekEnd(){return addDays(mondayOf(todayIso()),6)}
-function pickDay(date){var s=sess(date);if(s&&s.day&&dayById(s.day)&&allDone(s).length)return s.day;return weekPlan(mondayOf(date))[date]||null}
+function pickDay(date){var s=sess(date);if(s&&s.day&&dayById(s.day)&&(s.pick||allDone(s).length))return s.day;return weekPlan(mondayOf(date))[date]||null}
 
 /* ---------- Auswertung ---------- */
 function sessions(){var out=[];for(var k in S.months){var w=S.months[k].w||{};for(var d in w)out.push([d,w[d]])}
@@ -385,7 +386,7 @@ function exCard(ex,s,date){
 }
 
 function weekStrip(){var mon=mondayOf(view.date),plan=weekPlan(mon);
-  return'<div class="week" role="group" aria-label="Diese Woche">'+weekDates(mon).map(function(d){var s=sess(d),dn=!!(s&&allDone(s).length),id=dn&&dayById(s.day)?s.day:plan[d],dd=id?dayById(id):null;
+  return'<div class="week" role="group" aria-label="Diese Woche">'+weekDates(mon).map(function(d){var s=sess(d),dn=!!(s&&allDone(s).length),id=pickDay(d),dd=id?dayById(id):null;
     return'<button class="wk'+(d===view.date?' cur':'')+(dn?' dn':'')+'" data-act="goto" data-date="'+d+'"'+(dd?' data-day="'+dd.id+'"':'')+(d>weekEnd()?' disabled':'')+
       ' aria-label="'+esc(dLong.format(parse(d))+': '+(dd?dd.name:'Ruhetag')+(dn?', erledigt':''))+'"><span>'+WD[parse(d).getDay()]+'</span><b>'+(dd?esc(dd.name):'Ruhe')+'</b></button>'}).join('')+'</div>'}
 function renderToday(){
@@ -394,11 +395,13 @@ function renderToday(){
   document.body.dataset.day=day?day.id:'pull';
   var mon=mondayOf(view.date),ov=(S.config.restWeeks||{})[mon],isOv=!!(ov&&ov.indexOf(view.date)>=0),planned=weekPlan(mon)[view.date];
   var hasDone=!!(s&&allDone(s).length);
-  var h=dateBar()+weekStrip()+'<div class="chips">'+S.config.days.map(function(d){
-    return'<button class="chip" data-act="day" data-d="'+d.id+'" aria-pressed="'+(day&&d.id===day.id)+'">'+esc(d.name)+'</button>'}).join('')+'</div>';
+  var h=dateBar()+weekStrip();
+  if(!auth)h+='<p class="note">Nicht angemeldet, deine Einträge liegen nur auf diesem Gerät. <a class="link" href="#plan">Anmelden</a></p>';
+  var picker='<div class="card stack"><h2 class="sect">Training ändern</h2><p class="note">Wähle, was du an diesem Tag trainierst. Zum Bestätigen zweimal tippen.</p><div class="chips">'+S.config.days.map(function(d){
+    return'<button class="chip" data-act="day" data-d="'+d.id+'" aria-pressed="'+!!(day&&d.id===day.id)+'">'+esc(d.name)+'</button>'}).join('')+'</div></div>';
   if(!day){h+='<div class="card stack"><h2 class="sect">Ruhetag</h2>'+(isOv
       ?'<p class="empty">Du hast diesen Tag als Ruhetag gewählt. Die übrigen Trainings dieser Woche sind nachgerückt, einen weiteren Ruhetag gibt es in dieser Woche nicht.</p><div><button class="btn sec" data-act="restclear">Ruhetag aufheben</button></div>'
-      :'<p class="empty">Für diesen Tag ist kein Training geplant. Wähle oben einen Tag, wenn du trotzdem trainierst.</p>'+(ov?'<div><button class="btn sec" data-act="restclear">Woche zurücksetzen</button></div>':''))+'</div>'}
+      :'<p class="empty">Für diesen Tag ist kein Training geplant. Wähle unten ein Training, wenn du trotzdem trainierst.</p>'+(ov?'<div><button class="btn sec" data-act="restclear">Woche zurücksetzen</button></div>':''))+'</div>'}
   else{
     var exs=activeEx(day),total=0,done=0;
     exs.forEach(function(e){total+=e.sets;done+=Math.min(e.sets,s?doneOf(s,e.id).length:0)});
@@ -411,6 +414,7 @@ function renderToday(){
     if(ov)rb+='<button class="ghost" data-act="restclear">Woche zurücksetzen</button>';
     if(rb)h+='<div class="rowbtns">'+rb+'</div>'+(planned&&!hasDone?'<p class="note">Die übrigen Trainings dieser Woche rücken dann einen Tag weiter.</p>':'');
   }
+  h+=picker;
   $('#view').innerHTML=h;tickRest();
 }
 
@@ -491,7 +495,7 @@ function renderProtein(){
 }
 
 function renderPlan(){
-  var h='<h1 class="sect">Trainingsplan</h1><p class="note">Das ist deine Standardwoche. Einen einzelnen Ruhetag verlegst du im Tab Training.</p>';
+  var h=kontoCard()+'<h1 class="sect">Trainingsplan</h1><p class="note">Das ist deine Standardwoche. Einen einzelnen Ruhetag verlegst du im Tab Training.</p>';
   S.config.days.forEach(function(d){
     h+='<section class="card pday" data-day="'+d.id+'"><h2>'+esc(d.name)+'</h2>'+
       '<label class="lab" for="f-'+d.id+'">Fokus<input class="field" id="f-'+d.id+'" data-pf="focus" value="'+esc(d.focus)+'" placeholder="z. B. Brust, Schultern, Trizeps"></label>'+
@@ -510,7 +514,7 @@ function renderPlan(){
   h+='<div class="card stack"><h2 class="sect">Einstellungen</h2>'+
     '<label class="lab" for="stepSel">Schritt der Plus- und Minus-Tasten beim Gewicht<select id="stepSel">'+[1,1.25,2.5,5].map(function(v){return'<option value="'+v+'"'+(S.config.step===v?' selected':'')+'>'+fmt(v)+' kg</option>'}).join('')+'</select></label>'+
     '</div><div class="card stack"><h2 class="sect">Sicherung</h2>'+
-    '<p class="note">Deine Einträge liegen nur auf diesem Gerät. Wenn du das Icon vom Home-Bildschirm löschst, sind sie weg. Sichere sie deshalb ab und zu.</p>'+
+    '<p class="note">'+(auth?'Deine Einträge liegen auf dem Server. Eine Datei-Sicherung ist nur eine zusätzliche Absicherung.':'Ohne Konto liegen deine Einträge nur auf diesem Gerät. Wenn du das Icon vom Home-Bildschirm löschst, sind sie weg.')+'</p>'+
     '<div class="rowbtns"><button class="btn" data-act="bfile">Sicherung speichern</button><button class="btn sec" data-act="backup">In die Zwischenablage kopieren</button></div>'+
     '<label class="lab" for="impFile">Sicherung einspielen (Datei wählen)<input class="field" type="file" id="impFile" accept=".json,application/json,text/plain" style="padding:9px 10px;height:auto"></label>'+
     '<div id="impGo" hidden><button class="btn" data-act="impgo">Jetzt alle Einträge ersetzen</button></div>'+
@@ -547,10 +551,14 @@ document.addEventListener('click',function(ev){
   switch(act){
     case'date':view.date=addDays(view.date,+b.dataset.d);if(view.date>weekEnd())view.date=weekEnd();view.day=null;view.extra={};render();break;
     case'goto':view.date=b.dataset.date;view.day=null;view.extra={};render();break;
-    case'restset':setRest(view.date);view.day=null;view.extra={};renderToday();$('#main').scrollTop=0;break;
+    case'restset':s=sess(view.date);if(s&&s.pick){delete s.pick;touch(view.date.slice(0,7))}setRest(view.date);view.day=null;view.extra={};renderToday();$('#main').scrollTop=0;break;
     case'restclear':clearRest(view.date);view.day=null;view.extra={};renderToday();break;
     case'today':view.date=todayIso();view.day=null;view.extra={};render();break;
-    case'day':view.day=b.dataset.d;s=sess(view.date);if(s&&allDone(s).length===0){s.day=view.day;touch(view.date.slice(0,7))}view.extra={};renderToday();break;
+    case'day':if(b.dataset.d===view.day)break;
+      if(b.dataset.arm!=='1'){document.querySelectorAll('.chip[data-arm="1"]').forEach(function(c){c.dataset.arm='';c.textContent=c.dataset.label});
+        b.dataset.arm='1';b.dataset.label=b.textContent;b.textContent='Nochmal tippen';
+        setTimeout(function(){if(b.isConnected&&b.dataset.arm==='1'){b.dataset.arm='';b.textContent=b.dataset.label}},3000);break}
+      view.day=b.dataset.d;s=sess(view.date,true);s.day=view.day;s.pick=true;touch(view.date.slice(0,7));view.extra={};renderToday();$('#main').scrollTop=0;break;
     case'step':row=b.closest('.set');var f=b.dataset.f,inp=row.querySelector('input[data-f="'+f+'"]'),v=num(inp.value)||0,st=f==='w'?(S.config.step||2.5):1;
       inp.value=fin(Math.max(0,Math.round((v+(+b.dataset.d)*st)*100)/100));storeRow(row);break;
     case'chk':row=b.closest('.set');card=b.closest('.ex');exId=card.dataset.ex;i=+row.dataset.i;
@@ -581,12 +589,24 @@ document.addEventListener('click',function(ev){
     case'exdel':if(b.dataset.sure!=='1'){b.dataset.sure='1';b.textContent='Weg?';b.style.width='auto';b.style.padding='0 8px';b.style.fontSize='14px';
         setTimeout(function(){if(b.isConnected){b.dataset.sure='';b.textContent='×';b.style.cssText=''}},3000);break}
       var fd=findEx(b.closest('.pex').dataset.ex);if(!fd)break;if(hasHistory(fd.ex.id))fd.ex.archived=true;else fd.day.ex.splice(fd.idx,1);touch('config');renderPlan();break;
+    case'login':case'signup':var em=$('#accMail').value.trim(),pw=$('#accPw').value,am=$('#accMsg');
+      if(!em||pw.length<6){am.textContent='Bitte E-Mail und ein Passwort mit mindestens 6 Zeichen eingeben.';break}
+      b.disabled=true;am.textContent='Einen Moment …';
+      (act==='login'?sbFetch('/auth/v1/token?grant_type=password','POST',{email:em,password:pw})
+        :sbFetch('/auth/v1/signup?redirect_to='+encodeURIComponent(location.origin+location.pathname),'POST',{email:em,password:pw}))
+      .then(function(j){if(j&&j.access_token){setSession(j);authMsg='';startCloud()}
+        else if(j&&j.identities&&j.identities.length===0)authMsg='Für diese Adresse gibt es schon ein Konto. Melde dich an.';
+        else authMsg='Fast fertig: Öffne den Link in der E-Mail an '+em+' und melde dich danach hier an.';
+        renderPlan()},function(e){b.disabled=false;am.textContent=authErr(e)});break;
+    case'logout':if(cloud&&Object.keys(S.dirty).length){$('#accMsg').textContent='Es ist noch nicht alles gesichert. Bitte kurz warten und noch einmal abmelden.';clearTimeout(ft);flush();break}
+      var ot=auth&&auth.access_token;if(ot)sbFetch('/auth/v1/logout','POST',null,ot).catch(function(){});
+      S.config=defaults();S.months={};S.dirty={};delete S.owner;saveLocal();view.day=null;signedOut('Abgemeldet. Die Einträge bleiben auf dem Server.');if(view.tab!=='plan')render();break;
     case'bfile':var bt=JSON.stringify({config:S.config,months:S.months}),bn='trainingslog-'+todayIso()+'.json',note2=$('#backupNote');
       try{var file=new File([bt],bn,{type:'application/json'});
         if(navigator.canShare&&navigator.canShare({files:[file]})){navigator.share({files:[file]}).then(function(){note2.textContent='Sicherung übergeben.'},function(){});break}}catch(e){}
       var ba=document.createElement('a');ba.href=URL.createObjectURL(new Blob([bt],{type:'application/json'}));ba.download=bn;document.body.appendChild(ba);ba.click();ba.remove();
       note2.textContent='Sicherung als Datei gespeichert.';break;
-    case'impgo':if(!pendingImport)break;S.config=pendingImport.config;S.months=pendingImport.months||{};S.dirty={};pendingImport=null;saveLocal();view.day=null;renderPlan();
+    case'impgo':if(!pendingImport)break;S.config=pendingImport.config;S.months=pendingImport.months||{};S.dirty={};pendingImport=null;var now=Date.now();S.config.t=now;S.dirty.config=1;Object.keys(S.months).forEach(function(k){S.months[k].t=now;S.dirty[k]=1});if(auth)S.owner=auth.user.id;saveLocal();scheduleFlush();view.day=null;renderPlan();
       $('#backupNote').textContent='Sicherung eingespielt.';break;
     case'backup':var txt=JSON.stringify({config:S.config,months:S.months}),note=$('#backupNote');
       try{navigator.clipboard.writeText(txt).then(function(){note.textContent='Sicherung kopiert. Füge sie in eine Notiz ein, um sie aufzubewahren.'},function(){note.textContent='Kopieren wurde vom Browser nicht erlaubt.'})}
@@ -610,12 +630,13 @@ document.addEventListener('change',function(ev){
     touch('config')}
 });
 document.addEventListener('focusin',function(ev){var t=ev.target;if(t.tagName==='INPUT'&&(t.dataset.f||t.dataset.xf)&&t.select){try{t.select()}catch(e){}}});
-document.addEventListener('keydown',function(ev){if(ev.key==='Enter'&&ev.target.tagName==='INPUT'){ev.preventDefault();if(ev.target.id==='pGrams'||ev.target.id==='pLabel'){var b=document.querySelector('[data-act="pcustom"]');if(b)b.click()}else ev.target.blur()}});
+document.addEventListener('keydown',function(ev){if(ev.key==='Enter'&&ev.target.tagName==='INPUT'){ev.preventDefault();if(ev.target.id==='pGrams'||ev.target.id==='pLabel'){var b=document.querySelector('[data-act="pcustom"]');if(b)b.click()}else if(ev.target.id==='accPw'||ev.target.id==='accMail'){var lb=document.querySelector('[data-act="login"]');if(lb)lb.click()}else ev.target.blur()}});
 
 /* ---------- Speicherung im Konto ---------- */
-var pendingImport=null;
+var pendingImport=null,refreshing=null,authMsg='';
+var auth=(function(){try{var a=JSON.parse(localStorage.getItem('trainingslog.auth')||'null');return a&&a.user&&a.refresh_token?a:null}catch(e){return null}})();
 var cloud=null,flushing=false,again=false,ft=null;
-var SYNC={ok:'Gesichert',saving:'Speichert …',loading:'Lädt …',local:'Auf diesem Gerät',error:'Nicht gesichert, neuer Versuch folgt'};
+var SYNC={ok:'Gesichert',saving:'Speichert …',loading:'Lädt …',local:'Nicht angemeldet',error:'Nicht gesichert, neuer Versuch folgt'};
 function setSync(s){var el=$('#sync');el.dataset.s=s;$('#syncText').textContent=SYNC[s]||''}
 function scheduleFlush(){if(!cloud)return;setSync('saving');clearTimeout(ft);ft=setTimeout(flush,1200)}
 function docId(key){return key==='config'?'config':'m-'+key}
@@ -647,14 +668,35 @@ function pull(){
     if(Object.keys(S.dirty).length)flush();else setSync('ok');
   },function(){clearTimeout(timer);setSync('error')});
 }
-function initCloud(){
-  if(!window.claude||typeof window.claude.use!=='function'){setSync('local');return}
-  Promise.all([window.claude.use('db'),window.claude.use('user')]).then(function(r){
-    var db=r[0],user=r[1];if(!db||!user){setSync('local');return}
-    return user.id().then(function(id){if(!id){setSync('local');return}
-      cloud=db.collection('data/users/'+id);if(view.tab==='plan')render();return pull()});
-  }).catch(function(){setSync('local')});
-}
+var SB_URL='https://chgodrkfloyppmtbkitt.supabase.co',SB_KEY='sb_publishable_GBjvdIMR-cTWMlyBnOxLrQ_grcKWGLh',AKEY='trainingslog.auth';
+function saveAuth(){try{if(auth)localStorage.setItem(AKEY,JSON.stringify(auth));else localStorage.removeItem(AKEY)}catch(e){}}
+function sbFetch(path,method,body,tok,extra){var hd={apikey:SB_KEY,'Content-Type':'application/json'};if(tok)hd.Authorization='Bearer '+tok;if(extra)for(var k in extra)hd[k]=extra[k];
+  return fetch(SB_URL+path,{method:method,headers:hd,body:body?JSON.stringify(body):undefined}).then(function(r){return r.text().then(function(t){var j=null;try{j=t?JSON.parse(t):null}catch(e){}
+    if(!r.ok){var er=new Error((j&&(j.msg||j.error_description||j.message))||('Fehler '+r.status));er.status=r.status;er.code=j&&(j.error_code||j.code||j.error);throw er}return j})})}
+function setSession(j){auth={access_token:j.access_token,refresh_token:j.refresh_token,expires_at:j.expires_at||Math.floor(Date.now()/1000)+(j.expires_in||3600),user:{id:j.user.id,email:j.user.email}};saveAuth()}
+function signedOut(msg){auth=null;saveAuth();cloud=null;clearTimeout(ft);setSync('local');authMsg=msg||'';if(view.tab==='plan'||view.tab==='heute')render()}
+function token(){if(!auth)return Promise.reject(new Error('abgemeldet'));if(auth.expires_at-Date.now()/1000>90)return Promise.resolve(auth.access_token);
+  if(!refreshing)refreshing=sbFetch('/auth/v1/token?grant_type=refresh_token','POST',{refresh_token:auth.refresh_token}).then(function(j){setSession(j);refreshing=null;return auth.access_token},
+    function(e){refreshing=null;if(e.status===400||e.status===401||e.status===403)signedOut('Deine Anmeldung ist abgelaufen. Bitte melde dich neu an.');throw e});
+  return refreshing}
+function rest(method,path,body,extra,retried){return token().then(function(t){return sbFetch('/rest/v1/'+path,method,body,t,extra)}).catch(function(e){
+  if(e.status===401&&!retried&&auth){auth.expires_at=0;return rest(method,path,body,extra,true)}throw e})}
+function authErr(e){if(!e.status)return'Keine Verbindung zum Server. Bitte später erneut versuchen.';
+  var m={invalid_credentials:'E-Mail oder Passwort stimmt nicht.',email_not_confirmed:'Bitte öffne zuerst den Link in der Bestätigungs-E-Mail.',user_already_exists:'Für diese Adresse gibt es schon ein Konto. Melde dich an.',
+    weak_password:'Das Passwort ist zu schwach. Nimm ein längeres.',over_email_send_rate_limit:'Zu viele E-Mails in kurzer Zeit. Bitte später erneut versuchen.',over_request_rate_limit:'Zu viele Versuche. Bitte kurz warten.',
+    email_address_invalid:'Diese E-Mail-Adresse wird nicht angenommen.',signup_disabled:'Neue Konten sind in Supabase gerade abgeschaltet.',email_address_not_authorized:'Supabase darf an diese Adresse keine Bestätigungs-E-Mail senden.'};
+  return m[e.code]||e.message||'Das hat nicht geklappt.'}
+function startCloud(){var uid=auth.user.id;if(S.owner&&S.owner!==uid){S.config=defaults();S.months={};S.dirty={};view.day=null}S.owner=uid;saveLocal();
+  cloud={doc:function(id){return{set:function(obj){return rest('POST','trainingslog_docs?on_conflict=user_id,key',{user_id:uid,key:id,data:obj,updated_at:new Date().toISOString()},{Prefer:'resolution=merge-duplicates,return=minimal'})}}},
+    get:function(){return rest('GET','trainingslog_docs?select=key,data').then(function(rows){return{docs:(rows||[]).map(function(r){return{id:r.key,data:function(){return r.data}}})}})}};
+  setSync('loading');return pull()}
+function initCloud(){if(auth)startCloud();else setSync('local')}
+function kontoCard(){return auth
+  ?'<div class="card stack"><h2 class="sect">Konto</h2><p>Angemeldet als <b>'+esc(auth.user.email)+'</b></p><p class="note">Deine Einträge werden auf dem Server gespeichert und sind auf jedem Gerät da, auf dem du dich anmeldest.</p><div><button class="btn sec" data-act="logout">Abmelden</button></div><p class="note" id="accMsg">'+esc(authMsg)+'</p></div>'
+  :'<div class="card stack"><h2 class="sect">Konto</h2><p class="note">Mit einem Konto werden deine Einträge auf dem Server gespeichert. Was du bisher auf diesem Gerät eingetragen hast, wird beim ersten Anmelden übernommen.</p>'+
+    '<label class="lab" for="accMail">E-Mail<input class="field" id="accMail" type="email" inputmode="email" autocomplete="username" autocapitalize="none" autocorrect="off"></label>'+
+    '<label class="lab" for="accPw">Passwort (mindestens 6 Zeichen)<input class="field" id="accPw" type="password" autocomplete="current-password"></label>'+
+    '<div class="rowbtns"><button class="btn" data-act="login">Anmelden</button><button class="btn sec" data-act="signup">Konto erstellen</button></div><p class="note" id="accMsg">'+esc(authMsg)+'</p></div>'}
 document.addEventListener('visibilitychange',function(){
   if(document.hidden){if(cloud&&Object.keys(S.dirty).length){clearTimeout(ft);flush()}}
   else{var t=todayIso();if(view.date!==t&&view.tab==='heute'&&!sess(view.date)){view.date=t;view.day=null;render()}
