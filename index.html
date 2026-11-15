@@ -256,7 +256,7 @@ var dShort=new Intl.DateTimeFormat('de-DE',{day:'2-digit',month:'2-digit'});
 function shortDate(s){return dShort.format(parse(s))}
 
 function defaults(){return{v:2,t:0,proteinGoal:150,step:2.5,favs:[],days:[]}}
-var STANDALONE=true;
+var STANDALONE=true,BUILD='15.11.2026 12:06';
 var EQ=[['lh','Langhantel mit Rack'],['bank','Hantelbank'],['kh','Kurzhanteln'],['kabel','Kabelzug'],['lat','Latzug'],['ruder','Rudermaschine'],['brust','Brustpresse'],['fly','Butterfly'],
   ['schulter','Schulterpresse'],['smith','Multipresse'],['bp','Beinpresse'],['strecker','Beinstrecker'],['beuger','Beinbeuger'],['wade','Wadenmaschine'],['klimm','Klimmzugstange'],['dip','Dip-Barren']];
 var SLOT={
@@ -305,9 +305,7 @@ if(!S.months)S.months={};if(!S.dirty)S.dirty={};
 var view={tab:'heute',date:todayIso(),day:null,exSel:null,metric:'top',extra:{},lastSet:0,setup:null,planMsg:''};
 
 function retireAll(){var rt=S.config.retired||(S.config.retired=[]);(S.config.days||[]).forEach(function(d){d.ex.forEach(function(e){if(hasHistory(e.id)&&!rt.some(function(x){return x.id===e.id}))rt.push({id:e.id,name:e.name})})})}
-function migrate(){var c=S.config;if((c.v||1)>=2)return false;if(!c.perWeek&&c.days&&c.days.length){retireAll();c.days=[];c.restWeeks={}}if(!c.days)c.days=[];c.v=2;c.t=(c.t||0)+1;S.dirty.config=1;return true}
 function saveLocal(){try{localStorage.setItem(KEY,JSON.stringify(S))}catch(e){}}
-if(migrate())saveLocal();
 function touch(key){var o=key==='config'?S.config:S.months[key];if(!o)return;o.t=Date.now();S.dirty[key]=1;saveLocal();scheduleFlush()}
 function month(date,create){var k=date.slice(0,7),m=S.months[k];if(!m&&create)m=S.months[k]={w:{},p:{},t:0};if(m){if(!m.w)m.w={};if(!m.p)m.p={}}return m}
 function sess(date,create){var m=month(date,create);if(!m)return null;var s=m.w[date];if(!s&&create)s=m.w[date]={day:view.day,sets:{}};if(s&&!s.sets)s.sets={};return s}
@@ -427,23 +425,18 @@ function weekStrip(){var mon=mondayOf(view.date),plan=weekPlan(mon);
   return'<div class="week" role="group" aria-label="Diese Woche">'+weekDates(mon).map(function(d){var s=sess(d),dn=!!(s&&allDone(s).length),id=pickDay(d),dd=id?dayById(id):null;
     return'<button class="wk'+(d===view.date?' cur':'')+(dn?' dn':'')+'" data-act="goto" data-date="'+d+'"'+(dd?' data-day="'+col(dd)+'"':'')+(d>weekEnd()?' disabled':'')+
       ' aria-label="'+esc(dLong.format(parse(d))+': '+(dd?dd.name:'Ruhetag')+(dn?', erledigt':''))+'"><span>'+WD[parse(d).getDay()]+'</span><b>'+(dd?esc(dd.short||dd.name||'Tag'):(S.config.days.length?'Ruhe':'–'))+'</b></button>'}).join('')+'</div>'}
-function installed(){try{return navigator.standalone===true||window.matchMedia('(display-mode: standalone)').matches}catch(e){return false}}
-function flag(k,set){try{if(set)localStorage.setItem('trainingslog.'+k,'1');return localStorage.getItem('trainingslog.'+k)==='1'}catch(e){return false}}
+var storageOK=(function(){try{localStorage.setItem('trainingslog.test','1');var ok=localStorage.getItem('trainingslog.test')==='1';localStorage.removeItem('trainingslog.test');return ok}catch(e){return false}})();
 function topNotes(){var h=auth?'':'<p class="note">Nicht angemeldet, deine Einträge liegen nur auf diesem Gerät. <a class="link" href="#plan">Anmelden</a></p>';
-  if(STANDALONE&&!installed()&&!flag('a2hs'))h+='<div class="card stack hint"><h2 class="sect">Als App aufs iPhone</h2><ol><li>In Safari auf „Teilen“ tippen. Je nach Ansicht steckt das hinter den drei Punkten.</li>'+
-    '<li>„Zum Home-Bildschirm“ wählen.</li><li>„Als Web-App öffnen“ eingeschaltet lassen und auf „Hinzufügen“ tippen.</li></ol>'+
-    '<p class="note">Danach startest du die App über das Icon, im Vollbild und ohne Browserleiste.</p><div><button class="btn sec" data-act="a2hsok">Verstanden</button></div></div>';
+  if(!storageOK)h+='<div class="card stack hint"><p><b>Dieser Browser speichert nichts dauerhaft.</b></p><p class="note">Das passiert zum Beispiel in einem privaten Tab. Öffne die App in einem normalen Tab oder über das Icon auf dem Home-Bildschirm.</p></div>';
   return h}
-function chooser(){return'<div class="card stack"><h1 class="sect">Noch kein Trainingsplan</h1><p class="note">Dein Kalender ist leer. Trag deinen Plan selbst ein oder lass dir einen vorschlagen.</p>'+
-  '<div class="rowbtns"><button class="btn" data-act="dayadd">Selbst eintragen</button><button class="btn sec" data-act="suauto">Plan vorschlagen lassen</button></div></div>'}
-function wizard(){var su=view.setup||(view.setup={n:0,eq:{}});
-  return'<div class="card stack"><div><button class="link" data-act="suback">Zurück</button></div><h1 class="sect">Dein Trainingsplan</h1><p class="note">Zwei Angaben, daraus entsteht dein Plan. Danach kannst du jede Übung ändern.</p>'+
+function wizard(){var su=view.setup||(view.setup={n:S.config.perWeek||0,eq:JSON.parse(JSON.stringify(S.config.eq||{}))});
+  return'<div class="card stack"><h2 class="sect">Trainingsplan-Generator</h2><p class="note">Zwei Angaben, daraus entsteht ein Plan. Danach kannst du jede Übung ändern.'+(S.config.days.length?' Dein jetziger Plan wird dabei ersetzt, deine Einträge im Verlauf bleiben.':'')+'</p>'+
     '<h2 class="q">Wie oft pro Woche willst du trainieren?</h2><div class="seg">'+[2,3,4,5,6].map(function(n){return'<button data-act="sun" data-n="'+n+'" aria-pressed="'+(su.n===n)+'">'+n+' ×</button>'}).join('')+'</div>'+
     '<p class="note">'+(su.n?SPLITINFO[su.n]:'Tippe eine Zahl an.')+'</p>'+
     '<h2 class="q">Was gibt es in deinem Gym?</h2><div class="eq">'+EQ.map(function(e){return'<button data-act="sueq" data-k="'+e[0]+'" aria-pressed="'+!!su.eq[e[0]]+'">'+e[1]+'</button>'}).join('')+'</div>'+
     '<div><button class="link" data-act="sueqall">Alles auswählen</button></div>'+
     '<p class="note">Fehlt ein Gerät, bekommst du an der Stelle eine Übung mit dem, was da ist, oder mit dem eigenen Körpergewicht.</p>'+
-    '<div><button class="btn" data-act="mkplan"'+(su.n?'':' disabled')+'>Plan erstellen</button></div></div>'}
+    '<div><button class="btn" data-act="mkplan"'+(su.n?'':' disabled')+'>Plan erzeugen</button></div></div>'}
 function dayText(date){
   var s=sess(date),day=dayById(pickDay(date)),L=[],tot={n:0,r:0,v:0};
   L.push('Trainingslog – '+new Intl.DateTimeFormat('de-DE',{weekday:'long',day:'numeric',month:'long',year:'numeric'}).format(parse(date)));
@@ -461,7 +454,8 @@ function dayText(date){
   pl.forEach(function(x){L.push('  '+(x.l||'Protein')+': '+fmt(x.g)+' g')});
   return L.join('\n')}
 function renderToday(){
-  if(!S.config.days.length){document.body.dataset.day='pull';$('#view').innerHTML=topNotes()+dateBar()+weekStrip()+(view.setup?wizard():chooser());return}
+  if(!S.config.days.length){document.body.dataset.day='pull';$('#view').innerHTML=topNotes()+dateBar()+weekStrip()+
+    '<div class="card stack"><h1 class="sect">Noch kein Trainingsplan</h1><p class="note">Dein Kalender ist leer. Im Tab Plan trägst du deine Trainingstage selbst ein oder nutzt den Generator.</p><div><a class="btn" href="#plan" style="text-decoration:none;display:inline-block">Zum Plan</a></div></div>';return}
   if(view.day===null)view.day=pickDay(view.date);
   var day=view.day?dayById(view.day):null,s=sess(view.date);
   document.body.dataset.day=day?col(day):'pull';
@@ -570,7 +564,7 @@ function renderProtein(){
 function renderPlan(){
   var h=kontoCard()+'<h1 class="sect">Trainingsplan</h1><p class="note">Das ist deine Standardwoche. Einen einzelnen Ruhetag verlegst du im Tab Training.</p>';
   if(view.planMsg){h+='<p class="tip">'+esc(view.planMsg)+'</p>';view.planMsg=''}
-  if(!S.config.days.length)h+='<div class="card stack"><p>Du hast noch keinen Plan.</p><p class="note">Leg unten deinen ersten Trainingstag an oder lass dir einen Plan vorschlagen.</p><div><button class="btn sec" data-act="suauto">Plan vorschlagen lassen</button></div></div>';
+  if(!S.config.days.length)h+='<p class="note">Noch kein Plan. Leg einen Trainingstag an oder nutze den Generator darunter.</p>';
   S.config.days.forEach(function(d){
     h+='<section class="card pday" data-id="'+d.id+'" data-day="'+col(d)+'"><h2>'+esc(d.name||'Neuer Tag')+'</h2>'+
       '<label class="lab" for="dn-'+d.id+'">Name des Trainingstags<input class="field" id="dn-'+d.id+'" data-pf="name" value="'+esc(d.name)+'" placeholder="z. B. Push, Oberkörper, Tag A"></label>'+
@@ -587,16 +581,18 @@ function renderPlan(){
         '<button class="ib" data-act="exdown" aria-label="Nach unten"'+(i===exs.length-1?' disabled':'')+'>↓</button>'+
         '<button class="ib" data-act="exdel" aria-label="Übung entfernen">×</button></div></div>'});
     h+='<div class="rowbtns"><button class="ghost" data-act="exadd">+ Übung</button><button class="ghost" data-act="daydel">Tag löschen</button></div></section>'});
-  h+='<div><button class="btn" data-act="dayadd">+ Trainingstag</button></div>';
+  h+='<div><button class="btn" data-act="dayadd">+ Trainingstag</button></div>'+wizard();
   h+='<div class="card stack"><h2 class="sect">Einstellungen</h2>'+
     '<label class="lab" for="stepSel">Schritt der Plus- und Minus-Tasten beim Gewicht<select id="stepSel">'+[1,1.25,2.5,5].map(function(v){return'<option value="'+v+'"'+(S.config.step===v?' selected':'')+'>'+fmt(v)+' kg</option>'}).join('')+'</select></label>'+
-    '<div><button class="btn sec" data-act="replan">Plan neu erstellen</button></div>'+
     '</div><div class="card stack"><h2 class="sect">Sicherung</h2>'+
     '<p class="note">'+(auth?'Deine Einträge liegen auf dem Server. Eine Datei-Sicherung ist nur eine zusätzliche Absicherung.':'Ohne Konto liegen deine Einträge nur auf diesem Gerät. Wenn du das Icon vom Home-Bildschirm löschst, sind sie weg.')+'</p>'+
     '<div class="rowbtns"><button class="btn" data-act="bfile">Sicherung speichern</button><button class="btn sec" data-act="backup">In die Zwischenablage kopieren</button></div>'+
     '<label class="lab" for="impFile">Sicherung einspielen (Datei wählen)<input class="field" type="file" id="impFile" accept=".json,application/json,text/plain" style="padding:9px 10px;height:auto"></label>'+
     '<div id="impGo" hidden><button class="btn" data-act="impgo">Jetzt alle Einträge ersetzen</button></div>'+
     '<p class="note" id="backupNote"></p></div>';
+  if(STANDALONE)h+='<div class="card stack"><h2 class="sect">Als App aufs iPhone</h2><ol style="margin:0;padding-left:20px;font-size:14px"><li>Die Adresse in Safari öffnen und auf „Teilen“ tippen.</li><li>„Zum Home-Bildschirm“ wählen.</li><li>„Als Web-App öffnen“ eingeschaltet lassen und auf „Hinzufügen“ tippen.</li></ol>'+
+    '<p class="note">Safari und das Icon speichern getrennt. Melde dich deshalb in der App vom Icon noch einmal an.</p></div>';
+  h+='<p class="note">Version '+BUILD+'</p>';
   $('#view').innerHTML=h;
   if(view.focusId){var fe0=document.getElementById(view.focusId);view.focusId=null;if(fe0){fe0.scrollIntoView({block:'center'});try{fe0.focus({preventScroll:true})}catch(e){}}}
 }
@@ -662,21 +658,17 @@ document.addEventListener('click',function(ev){
       if(arr[i]&&arr[i].d&&$('#rest')&&view.date===todayIso())armRest();else{cancelBeep();restAlerted=true}break;
     case'addset':card=b.closest('.ex');exId=card.dataset.ex;var fx=findEx(exId);s=sess(view.date);
       view.extra[exId]=Math.max(fx?fx.ex.sets:0,s&&s.sets[exId]?s.sets[exId].length:0,view.extra[exId]||0)+1;renderToday();break;
-    case'suauto':view.setup={n:S.config.perWeek||0,eq:JSON.parse(JSON.stringify(S.config.eq||{}))};if(view.tab!=='heute')location.hash='#heute';else renderToday();break;
-    case'suback':view.setup=null;renderToday();break;
-    case'dayadd':var nd={id:rid(),name:'',c:['push','pull','legs','c4','c5'][S.config.days.length%5],focus:'',weekdays:[],ex:[]};S.config.days.push(nd);S.config.v=2;touch('config');view.day=null;view.setup=null;
+    case'dayadd':var nd={id:rid(),name:'',c:['push','pull','legs','c4','c5'][S.config.days.length%5],focus:'',weekdays:[],ex:[]};S.config.days.push(nd);S.config.v=2;touch('config');view.day=null;
       view.focusId='dn-'+nd.id;if(view.tab!=='plan')location.hash='#plan';else renderPlan();break;
     case'daydel':if(b.dataset.sure!=='1'){b.dataset.sure='1';b.textContent='Wirklich löschen?';setTimeout(function(){if(b.isConnected){b.dataset.sure='';b.textContent='Tag löschen'}},3000);break}
       var did=b.closest('.pday').dataset.id;retireAll();S.config.days=S.config.days.filter(function(d){return d.id!==did});touch('config');view.day=null;renderPlan();break;
-    case'a2hsok':flag('a2hs',true);render();break;
-    case'sun':view.setup.n=+b.dataset.n;renderToday();break;
-    case'sueq':view.setup.eq[b.dataset.k]=!view.setup.eq[b.dataset.k];renderToday();break;
-    case'sueqall':var allOn=EQ.every(function(e){return view.setup.eq[e[0]]});EQ.forEach(function(e){view.setup.eq[e[0]]=!allOn});renderToday();break;
-    case'mkplan':if(!view.setup||!view.setup.n)break;S.config.days=buildPlan(view.setup.n,view.setup.eq);S.config.v=2;S.config.eq=view.setup.eq;S.config.perWeek=view.setup.n;S.config.restWeeks={};
-      touch('config');view.setup=null;view.day=null;view.planMsg='Dein Plan steht. Übungen, Sätze und Tage kannst du hier anpassen.';location.hash='#plan';break;
-    case'replan':if(b.dataset.sure!=='1'){b.dataset.sure='1';b.textContent='Wirklich? Nochmal tippen';setTimeout(function(){if(b.isConnected){b.dataset.sure='';b.textContent='Plan neu erstellen'}},3000);break}
-      retireAll();
-      view.setup={n:S.config.perWeek||0,eq:JSON.parse(JSON.stringify(S.config.eq||{}))};S.config.days=[];S.config.restWeeks={};touch('config');view.day=null;location.hash='#heute';break;
+    case'sun':view.setup.n=+b.dataset.n;renderPlan();break;
+    case'sueq':view.setup.eq[b.dataset.k]=!view.setup.eq[b.dataset.k];renderPlan();break;
+    case'sueqall':var allOn=EQ.every(function(e){return view.setup.eq[e[0]]});EQ.forEach(function(e){view.setup.eq[e[0]]=!allOn});renderPlan();break;
+    case'mkplan':if(!view.setup||!view.setup.n)break;
+      if(S.config.days.length&&b.dataset.sure!=='1'){b.dataset.sure='1';b.textContent='Ersetzt deinen Plan. Nochmal tippen';setTimeout(function(){if(b.isConnected){b.dataset.sure='';b.textContent='Plan erzeugen'}},3000);break}
+      retireAll();S.config.days=buildPlan(view.setup.n,view.setup.eq);S.config.eq=view.setup.eq;S.config.perWeek=view.setup.n;S.config.v=2;S.config.restWeeks={};
+      touch('config');view.day=null;view.planMsg='Dein Plan steht. Übungen, Sätze und Tage kannst du hier anpassen.';renderPlan();$('#main').scrollTop=0;break;
     case'xday':var xt=dayText(view.date),xn=$('#xNote'),fn='training-'+view.date+'.txt';
       if(STANDALONE){try{var xf=new File([xt],fn,{type:'text/plain'});if(navigator.canShare&&navigator.canShare({files:[xf]})){navigator.share({files:[xf]}).catch(function(){});break}}catch(e){}
         var xa=document.createElement('a');xa.href=URL.createObjectURL(new Blob([xt],{type:'text/plain;charset=utf-8'}));xa.download=fn;document.body.appendChild(xa);xa.click();xa.remove();xn.textContent='Als '+fn+' gespeichert.';break}
@@ -770,12 +762,14 @@ function pull(){
     clearTimeout(timer);var seen={},changed=false;
     snap.docs.forEach(function(doc){var data=doc.data();if(!data)return;var key=doc.id==='config'?'config':doc.id.indexOf('m-')===0?doc.id.slice(2):null;if(!key)return;
       seen[key]=1;var local=key==='config'?S.config:S.months[key];
-      if(!local||!S.dirty[key]||(data.t||0)>(local.t||0)){var copy=JSON.parse(JSON.stringify(data));
+      var take=!local||!S.dirty[key]||(data.t||0)>(local.t||0);
+      if(key==='config'){var lh=!!(local&&local.days&&local.days.length),rh=!!(data.days&&data.days.length);if(lh&&!rh)take=false;else if(!lh&&rh)take=true}
+      if(!take){S.dirty[key]=1;return}
+      {var copy=JSON.parse(JSON.stringify(data));
         if(key==='config'){if(copy.days)S.config=copy}else S.months[key]=copy;delete S.dirty[key];changed=true}
       });
     if(!seen.config&&S.config.t)S.dirty.config=1;
     Object.keys(S.months).forEach(function(k){if(!seen[k]&&S.months[k].t)S.dirty[k]=1});
-    if(migrate())changed=true;
     saveLocal();if(changed){view.day=null;var a=document.activeElement;if(!a||a.tagName!=='INPUT')render()}
     if(Object.keys(S.dirty).length)flush();else setSync('ok');
   },function(){clearTimeout(timer);setSync('error')});
