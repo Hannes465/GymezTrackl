@@ -299,9 +299,13 @@ select,.field{background:var(--raise);border-color:var(--line);border-radius:var
 .brand{color:var(--top-ink)}
 .brand b{color:var(--top-accent)}
 .top .sync{color:var(--top-muted)}
-.tabs{background:var(--bar);grid-template-columns:repeat(4,minmax(0,1fr)) minmax(0,1.4fr)}
-.tabs a{font-size:11.5px;letter-spacing:.03em;min-width:0;padding-left:2px;padding-right:2px}
-.tabs a span{max-width:100%;overflow:hidden;white-space:nowrap}
+.tabs{background:var(--bar);display:flex}
+.tabs a{flex:1 1 auto;font-size:11.5px;letter-spacing:.02em;padding-left:3px;padding-right:3px}
+.tabs a span{white-space:nowrap}
+.entries.sups li{grid-template-columns:46px minmax(0,1fr) auto;gap:12px;padding:8px 0}
+.sups b{font-weight:600}.sups small{display:block;color:var(--muted);font-size:12px}
+.sup.done .chk{background:var(--accent);border-color:var(--accent);color:var(--on-accent)}
+.sups .x{min-width:40px;font-size:20px}.sups .x[data-sure="1"]{font-size:14px;color:var(--warn);font-weight:600}
 /* Einstieg ohne Plan */
 .hero{display:flex;flex-direction:column;gap:var(--s4);padding:var(--s5) 0 var(--s2)}
 .hero .mark{width:100%;max-width:340px;height:auto}
@@ -310,7 +314,7 @@ select,.field{background:var(--raise);border-color:var(--line);border-radius:var
 .hero h1 em{font-style:normal;color:var(--accent)}
 .hero .lead{font-size:17px;line-height:1.45;max-width:34ch}
 .feat{list-style:none;margin:var(--s2) 0 0;padding:0;border-top:1px solid var(--line)}
-.feat li{display:grid;grid-template-columns:92px 1fr;gap:var(--s3);padding:13px 0;border-bottom:1px solid var(--line);font-size:var(--t-s);color:var(--muted);align-items:baseline}
+.feat li{display:grid;grid-template-columns:104px 1fr;gap:var(--s3);padding:13px 0;border-bottom:1px solid var(--line);font-size:var(--t-s);color:var(--muted);align-items:baseline}
 .feat b{font-family:var(--display);font-weight:800;font-size:19px;letter-spacing:.07em;text-transform:uppercase;color:var(--ink)}
 @media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
 </style>
@@ -325,7 +329,7 @@ select,.field{background:var(--raise);border-color:var(--line);border-radius:var
 <nav class="tabs" id="tabs" aria-label="Bereiche">
   <a href="#heute"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 12h18M6.5 7v10M17.5 7v10M3.5 9.5v5M20.5 9.5v5"/></svg><span>Training</span></a>
   <a href="#verlauf"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 18l5-6 4 3 7-9M15 6h5v5"/></svg><span>Verlauf</span></a>
-  <a href="#protein"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="8.5" opacity=".35"/><path d="M12 3.5a8.5 8.5 0 1 1-7.4 12.7"/></svg><span>Protein</span></a>
+  <a href="#protein"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="8.5" opacity=".35"/><path d="M12 3.5a8.5 8.5 0 1 1-7.4 12.7"/></svg><span>Ernährung</span></a>
   <a href="#plan"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="4" y="5" width="16" height="15" rx="2"/><path d="M4 10h16M9 3v4M15 3v4"/></svg><span>Plan</span></a>
   <a href="#einstellungen"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7h9M17 7h3M4 17h3M11 17h9"/><circle cx="15" cy="7" r="2"/><circle cx="9" cy="17" r="2"/></svg><span>Einstellungen</span></a>
 </nav>
@@ -350,7 +354,7 @@ var dShort=new Intl.DateTimeFormat('de-DE',{day:'2-digit',month:'2-digit'});
 function shortDate(s){return dShort.format(parse(s))}
 
 function defaults(){return{v:2,t:0,proteinGoal:150,step:2.5,favs:[],days:[]}}
-var STANDALONE=true,BUILD='1.4.2';
+var STANDALONE=true,BUILD='1.4.3';
 var EQ=[['lh','Langhantel mit Rack'],['bank','Hantelbank'],['kh','Kurzhanteln'],['kabel','Kabelzug'],['lat','Latzug'],['ruder','Rudermaschine'],['brust','Brustpresse'],['fly','Butterfly'],
   ['schulter','Schulterpresse'],['smith','Multipresse'],['bp','Beinpresse'],['strecker','Beinstrecker'],['beuger','Beinbeuger'],['wade','Wadenmaschine'],['klimm','Klimmzugstange'],['dip','Dip-Barren']];
 var SLOT={
@@ -485,6 +489,8 @@ function isoWeek(s){var d=parse(s);d.setDate(d.getDate()+3-(d.getDay()+6)%7);var
 function exName(id){for(var i=0;i<S.config.days.length;i++){var e=S.config.days[i].ex.filter(function(x){return x.id===id})[0];if(e)return e.name}
   var o=null;otherEx(function(e){if(!o&&e.id===id)o=e});if(o)return o.name;
   var r=(S.config.retired||[]).filter(function(x){return x.id===id})[0];return r?r.name:id}
+function supps(){if(!S.config.supps)S.config.supps=[{id:'kreatin',name:'Kreatin'}];return S.config.supps}
+function supTaken(date){var m=month(date);return(m&&m.s&&m.s[date])||{}}
 function proteinOf(date){var m=month(date);return m&&m.p[date]?m.p[date]:[]}
 function proteinSum(date){return proteinOf(date).reduce(function(t,x){return t+x.g},0)}
 
@@ -611,6 +617,7 @@ function dayText(date){
   else{L.push('Gesamt: '+tot.n+' Sätze · '+tot.r+' Wiederholungen · Volumen '+fmt(Math.round(tot.v))+' kg');L.push('')}
   var pl=proteinOf(date);L.push('Protein: '+fmt(proteinSum(date))+' g von '+fmt(S.config.proteinGoal||0)+' g');
   pl.forEach(function(x){L.push('  '+(x.l||'Protein')+': '+fmt(x.g)+' g')});
+  var st=supTaken(date),sn2=supps().filter(function(x){return st[x.id]}).map(function(x){return x.name});L.push('Supplements: '+(sn2.length?sn2.join(', '):'keine abgehakt'));
   return L.join('\n')}
 function renderToday(){
   if(!S.config.days.length){document.body.dataset.day='pull';$('#view').innerHTML=topNotes()+
@@ -618,7 +625,7 @@ function renderToday(){
     '<p class="lead">Plane deine Woche, hake jeden Satz ab und sieh, wie deine Gewichte steigen. Für alle, die im Gym trainieren und ihren Fortschritt festhalten wollen.</p>'+
     '<div class="rowbtns"><a class="btn" href="#plan">Plan anlegen</a></div>'+
     '<ul class="feat"><li><b>Plan</b><span>Eigene Pläne oder ein Vorschlag nach Ziel und Geräten</span></li><li><b>Training</b><span>Sätze mit Gewicht und Wiederholungen abhaken</span></li>'+
-    '<li><b>Verlauf</b><span>Steigerung je Übung und insgesamt</span></li><li><b>Protein</b><span>Dein Tagesziel im Blick</span></li></ul></section>'+
+    '<li><b>Verlauf</b><span>Steigerung je Übung und insgesamt</span></li><li><b>Ernährung</b><span>Protein-Tagesziel und Supplements</span></li></ul></section>'+
     '<h2 class="sect">Deine Woche</h2>'+dateBar()+weekStrip()+'<p class="note">Noch leer. Sobald dein Plan steht, siehst du hier jeden Trainingstag.</p>';return}
   if(view.day===null)view.day=pickDay(view.date);
   var day=view.day?dayById(view.day):null,s=sess(view.date);
@@ -722,7 +729,7 @@ function renderStats(){
 function renderProtein(){
   var goal=S.config.proteinGoal||0,sum=proteinSum(view.date),list=proteinOf(view.date);
   var C=2*Math.PI*52,pct=goal?Math.min(1,sum/goal):0,left=Math.max(0,goal-sum);
-  var h=dateBar()+'<div class="card ringwrap"><svg class="ring" viewBox="0 0 132 132" role="img" aria-label="'+fmt(sum)+' von '+fmt(goal)+' Gramm Protein">'+
+  var h=dateBar()+'<h1 class="sect">Protein</h1><div class="card ringwrap"><svg class="ring" viewBox="0 0 132 132" role="img" aria-label="'+fmt(sum)+' von '+fmt(goal)+' Gramm Protein">'+
     '<circle class="tr" cx="66" cy="66" r="52"/><circle class="fg" cx="66" cy="66" r="52" transform="rotate(-90 66 66)" stroke-dasharray="'+C.toFixed(1)+'" stroke-dashoffset="'+(C*(1-pct)).toFixed(1)+'"/>'+
     '<text class="big" x="66" y="72" text-anchor="middle">'+fmt(sum)+'</text><text class="sm" x="66" y="90" text-anchor="middle">von '+fmt(goal)+' g</text></svg>'+
     '<div class="rest">'+(goal&&sum>=goal?'<span class="pill good">Ziel erreicht</span><b>+'+fmt(sum-goal)+' g</b><span class="note">über dem Tagesziel</span>'
@@ -736,6 +743,13 @@ function renderProtein(){
   h+='<div class="card stack"><h2 class="sect">Einträge</h2>'+(list.length?'<ul class="entries">'+list.map(function(x,i){
     return'<li><span>'+esc(x.l||'Protein')+'</span><b>'+fmt(x.g)+' g</b><button class="x" data-act="pdel" data-i="'+i+'" aria-label="Eintrag löschen">×</button></li>'}).join('')+'</ul>'
     :'<p class="empty">Für diesen Tag ist noch nichts eingetragen.</p>')+'</div>';
+  var sl=supps(),tk=supTaken(view.date),t0=todayIso();
+  h+='<div class="card stack"><h2 class="sect">Supplements</h2>'+(sl.length?'<ul class="entries sups">'+sl.map(function(x){var n=0;for(var i=0;i<7;i++)if(supTaken(addDays(t0,-i))[x.id])n++;
+      return'<li class="sup'+(tk[x.id]?' done':'')+'"><button class="chk" data-act="supchk" data-id="'+esc(x.id)+'" aria-pressed="'+!!tk[x.id]+'" aria-label="'+esc(x.name)+' genommen">✓</button>'+
+        '<span><b>'+esc(x.name)+'</b><small>an '+n+' der letzten 7 Tage genommen</small></span><button class="x" data-act="supdel" data-id="'+esc(x.id)+'" aria-label="'+esc(x.name)+' entfernen">×</button></li>'}).join('')+'</ul>'
+      :'<p class="empty">Noch keine Supplements angelegt.</p>')+
+    '<div class="addrow" style="grid-template-columns:minmax(0,1fr) auto"><input class="field" id="supName" placeholder="Eigenes Supplement, z. B. Omega 3" autocomplete="off" aria-label="Name des Supplements"><button class="btn sec" data-act="supadd">Dazu</button></div>'+
+    '<p class="note">Abhaken gilt für den oben gewählten Tag.</p></div>';
   var t=todayIso(),days=[],s7=0,hit=0;
   for(var i=13;i>=0;i--){var d=addDays(t,-i),v=proteinSum(d);days.push({label:String(parse(d).getDate()),v:v,hl:d===view.date});if(i<7){s7+=v;if(goal&&v>=goal)hit++}}
   h+='<div class="card stack"><h2 class="sect">Letzte 14 Tage</h2>'+barChart(days,goal,'g')+
@@ -885,6 +899,11 @@ document.addEventListener('click',function(ev){
       try{navigator.clipboard.writeText(xt).then(function(){xn.textContent='Kopiert. Füge den Text in eine Notiz oder Nachricht ein.'},function(){xn.textContent='Kopieren wurde vom Browser nicht erlaubt.'})}catch(e){xn.textContent='Kopieren wurde vom Browser nicht erlaubt.'}break;
     case'theme':setTheme(b.dataset.m);render();break;
     case'metric':view.metric=b.dataset.m;renderStats();break;
+    case'supchk':var sm=month(view.date,true);if(!sm.s)sm.s={};var sd=sm.s[view.date]||(sm.s[view.date]={}),sid=b.dataset.id;
+      if(sd[sid])delete sd[sid];else sd[sid]=1;if(!Object.keys(sd).length)delete sm.s[view.date];touch(view.date.slice(0,7));renderProtein();break;
+    case'supadd':var sn=$('#supName').value.trim();if(!sn){$('#supName').focus();break}supps().push({id:rid(),name:sn});touch('config');renderProtein();break;
+    case'supdel':if(b.dataset.sure!=='1'){b.dataset.sure='1';b.textContent='Weg?';setTimeout(function(){if(b.isConnected){b.dataset.sure='';b.textContent='×'}},3000);break}
+      S.config.supps=supps().filter(function(x){return x.id!==b.dataset.id});touch('config');renderProtein();break;
     case'padd':addProtein(+b.dataset.g,'');break;
     case'pfav':var fv=S.config.favs[+b.dataset.i];if(fv)addProtein(fv.g,fv.label);break;
     case'favdel':S.config.favs.splice(+b.dataset.i,1);touch('config');renderProtein();break;
@@ -946,7 +965,7 @@ document.addEventListener('change',function(ev){
 });
 document.addEventListener('input',function(ev){if(ev.target.id==='plName')view.newName=ev.target.value});
 document.addEventListener('focusin',function(ev){var t=ev.target;if(t.tagName==='INPUT'&&(t.dataset.f||t.dataset.xf)&&t.select){try{t.select()}catch(e){}}});
-document.addEventListener('keydown',function(ev){if(ev.key==='Enter'&&ev.target.tagName==='INPUT'){ev.preventDefault();if(ev.target.id==='pGrams'||ev.target.id==='pLabel'){var b=document.querySelector('[data-act="pcustom"]');if(b)b.click()}else if(ev.target.id==='accPw'||ev.target.id==='accMail'){var lb=document.querySelector('[data-act="login"]');if(lb)lb.click()}else ev.target.blur()}});
+document.addEventListener('keydown',function(ev){if(ev.key==='Enter'&&ev.target.tagName==='INPUT'){ev.preventDefault();if(ev.target.id==='pGrams'||ev.target.id==='pLabel'){var b=document.querySelector('[data-act="pcustom"]');if(b)b.click()}else if(ev.target.id==='supName'){var sb=document.querySelector('[data-act="supadd"]');if(sb)sb.click()}else if(ev.target.id==='accPw'||ev.target.id==='accMail'){var lb=document.querySelector('[data-act="login"]');if(lb)lb.click()}else ev.target.blur()}});
 
 /* ---------- Speicherung im Konto ---------- */
 var pendingImport=null,refreshing=null,authMsg='';
