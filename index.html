@@ -6,7 +6,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="Trainingslog">
-<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-status-bar-style" content="black">
 <meta name="theme-color" content="#131211">
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="apple-touch-icon" href="icon-180.png">
@@ -350,7 +350,7 @@ var dShort=new Intl.DateTimeFormat('de-DE',{day:'2-digit',month:'2-digit'});
 function shortDate(s){return dShort.format(parse(s))}
 
 function defaults(){return{v:2,t:0,proteinGoal:150,step:2.5,favs:[],days:[]}}
-var STANDALONE=true,BUILD='1.4.1';
+var STANDALONE=true,BUILD='1.4.2';
 var EQ=[['lh','Langhantel mit Rack'],['bank','Hantelbank'],['kh','Kurzhanteln'],['kabel','Kabelzug'],['lat','Latzug'],['ruder','Rudermaschine'],['brust','Brustpresse'],['fly','Butterfly'],
   ['schulter','Schulterpresse'],['smith','Multipresse'],['bp','Beinpresse'],['strecker','Beinstrecker'],['beuger','Beinbeuger'],['wade','Wadenmaschine'],['klimm','Klimmzugstange'],['dip','Dip-Barren']];
 var SLOT={
