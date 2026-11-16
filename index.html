@@ -147,6 +147,9 @@ main{overscroll-behavior:contain}
 .btn.sec{background:var(--surface);color:var(--ink);border:1px solid var(--line)}
 .btn:disabled{opacity:.4}
 .empty{color:var(--muted);font-size:14px}
+.plbtn{display:flex;justify-content:space-between;align-items:center;gap:10px;width:100%;text-align:left;border:1px solid var(--line);background:var(--surface);border-radius:10px;padding:10px 12px}
+.plbtn b{font-weight:600}.plbtn small{display:block;color:var(--muted);font-size:12px}
+.plbtn[aria-pressed="true"]{border:2px solid var(--ink);padding:9px 11px}
 .q{font-size:16px;font-weight:600;margin-top:4px}
 .eq{display:flex;flex-wrap:wrap;gap:8px}
 .eq button{border:1px solid var(--line);background:var(--surface);border-radius:999px;padding:9px 14px;font-size:14px}
@@ -177,6 +180,12 @@ svg.chart{display:block;width:100%;height:auto}
 .chart .bar{fill:var(--day);opacity:.4}
 .chart .bar.hl{opacity:1}
 .chart .goal{stroke:var(--ink);stroke-width:1.2;stroke-dasharray:4 4}
+.gain b{display:block;font-family:var(--display);font-weight:800;font-size:46px;line-height:1;font-variant-numeric:tabular-nums}
+.gain span{font-size:13px;color:var(--muted)}
+.up{color:var(--good)}.down{color:var(--push)}.flat{color:var(--muted)}
+.hist.gl li{grid-template-columns:minmax(0,1fr) auto}
+.gl small{display:block;color:var(--muted);font-size:12px}
+.gl .dl{text-align:right;font-weight:600}
 .kv{display:grid;grid-template-columns:1fr auto;gap:4px 12px;font-size:14px}
 .kv dt{color:var(--muted)}.kv dd{margin:0;font-weight:600;font-variant-numeric:tabular-nums;text-align:right}
 .hist{list-style:none;margin:0;padding:0;display:flex;flex-direction:column}
@@ -256,7 +265,7 @@ var dShort=new Intl.DateTimeFormat('de-DE',{day:'2-digit',month:'2-digit'});
 function shortDate(s){return dShort.format(parse(s))}
 
 function defaults(){return{v:2,t:0,proteinGoal:150,step:2.5,favs:[],days:[]}}
-var STANDALONE=true,BUILD='15.11.2026 12:06';
+var STANDALONE=true,BUILD='16.11.2026 16:37';
 var EQ=[['lh','Langhantel mit Rack'],['bank','Hantelbank'],['kh','Kurzhanteln'],['kabel','Kabelzug'],['lat','Latzug'],['ruder','Rudermaschine'],['brust','Brustpresse'],['fly','Butterfly'],
   ['schulter','Schulterpresse'],['smith','Multipresse'],['bp','Beinpresse'],['strecker','Beinstrecker'],['beuger','Beinbeuger'],['wade','Wadenmaschine'],['klimm','Klimmzugstange'],['dip','Dip-Barren']];
 var SLOT={
@@ -292,18 +301,68 @@ var DAYMETA={push:['Push','Push','push','Brust, Schultern, Trizeps'],pull:['Pull
   upper:['Oberkörper','Oben','c4','Brust, Rücken, Schultern, Arme'],lower:['Unterkörper','Unten','c5','Beine und Bauch'],
   fa:['Ganzkörper A','GK A','push',''],fb:['Ganzkörper B','GK B','pull',''],fc:['Ganzkörper C','GK C','legs','']};
 function slug(s){return s.toLowerCase().replace(/ä/g,'ae').replace(/ö/g,'oe').replace(/ü/g,'ue').replace(/ß/g,'ss').replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'')}
-function buildPlan(n,eq){return SPLIT[n].map(function(sp){var id=sp[0],meta=DAYMETA[id],tpl=TPL[id==='lower'?'legs':id],used={},ex=[];
+SLOT.hipthrust=[['Hip Thrust','lh bank'],['Hip Thrust mit Kurzhantel','kh bank'],['Hüftheben einbeinig','']];
+SLOT.unilateral=[['Bulgarian Split Squats','kh'],['Ausfallschritte mit Langhantel','lh'],['Ausfallschritte','']];
+SLOT.stepup=[['Step-ups mit Kurzhanteln','kh bank'],['Step-ups','']];
+SLOT.nordic=[['Nordic Hamstring Curls','']];
+SLOT.jump=[['Box Jumps','']];
+SLOT.jump2=[['Standweitsprünge','']];
+SLOT.pogo=[['Pogo-Sprünge','']];
+SLOT.power=[['Kniebeugensprünge mit Kurzhanteln','kh'],['Kniebeugensprünge','']];
+SLOT.core=[['Unterarmstütz (Sekunden)','']];
+SLOT.side=[['Seitstütz (Sekunden je Seite)','']];
+SLOT.copen=[['Copenhagen Plank (Sekunden je Seite)','']];
+SLOT.rot=[['Holzhacker am Kabel','kabel'],['Russian Twists','']];
+SLOT.carry=[['Farmers Walk (Meter)','kh'],['Unterarmstütz (Sekunden)','']];
+SLOT.pushup=[['Explosive Liegestütze','']];
+SLOT.calf1=[['Wadenheben einbeinig','']];
+var GOALS=[['muskel','Muskelaufbau'],['kraft','Maximalkraft'],['sprung','Sprungkraft'],['ball','Basketball / Volleyball'],['fussball','Fußball'],['laufen','Laufen'],['kampf','Kampfsport'],['schwimmen','Schwimmen']];
+var HEAVY={chest:1,squat:1,hinge:1,row:1,latpull:1,shoulder:1,legpress:1};
+var GTPL={
+  sprung:{A:['Kraft für die Beine',[['squat',4,3,6],['hipthrust',3,6,8],['unilateral',3,6,8],['calf',3,8,12],['core',3,30,60]]],
+    B:['Sprünge und Oberkörper',[['jump',4,3,5],['jump2',3,4,6],['pogo',3,10,15],['chest',3,6,10],['row',3,8,12],['abs',3,10,15]]],
+    C:['Explosivkraft',[['power',4,4,6],['hinge',3,5,8],['nordic',3,4,8],['stepup',3,6,8],['latpull',3,6,10],['rot',3,8,12]]]},
+  fussball:{A:['Kraft und Verletzungsschutz',[['squat',3,4,6],['unilateral',3,6,8],['nordic',3,4,8],['calf',3,10,15],['copen',3,15,30],['abs',3,10,15]]],
+    B:['Sprünge und Oberkörper',[['jump',3,3,5],['jump2',3,4,6],['hinge',3,5,8],['chest',3,6,10],['row',3,8,12],['rot',3,8,12]]],
+    C:['Explosivkraft',[['power',3,4,6],['stepup',3,6,8],['hipthrust',3,6,10],['latpull',3,8,12],['shoulder',3,8,12],['core',3,30,60]]]},
+  laufen:{A:['Beinkraft',[['squat',3,6,8],['unilateral',3,8,10],['calf',3,12,15],['nordic',3,5,8],['core',3,30,60],['side',3,20,40]]],
+    B:['Hüfte und Rücken',[['hinge',3,6,8],['stepup',3,8,10],['hipthrust',3,8,12],['pogo',3,15,20],['row',3,8,12],['abs',3,10,15]]],
+    C:['Waden und Rumpf',[['legpress',3,8,10],['calf1',3,10,15],['jump',3,4,6],['chest',3,8,12],['latpull',3,8,12],['side',3,20,40]]]},
+  kampf:{A:['Kraft und Rumpf',[['squat',3,4,6],['chest',3,5,8],['row',3,6,10],['rot',3,8,12],['carry',3,20,40]]],
+    B:['Zug und Schultern',[['hinge',3,4,6],['latpull',3,5,8],['shoulder',3,6,10],['pushup',3,5,8],['core',3,30,60],['abs',3,10,15]]],
+    C:['Explosivkraft und Arme',[['power',3,4,6],['unilateral',3,6,8],['row2',3,8,12],['triceps',3,8,12],['biceps',3,8,12],['rot',3,8,12]]]},
+  schwimmen:{A:['Zug und Schultern',[['latpull',4,6,10],['row',3,8,12],['shoulder',3,8,12],['reardelt',3,12,15],['triceps',3,10,15],['core',3,30,60]]],
+    B:['Beine und Abstoß',[['squat',3,6,8],['hinge',3,6,10],['jump',3,4,6],['calf',3,10,15],['abs',3,10,15],['rot',3,8,12]]],
+    C:['Oberkörper und Rumpf',[['chest',3,8,12],['row2',3,8,12],['latpull',3,8,12],['reardelt',3,12,15],['biceps',2,10,12],['side',3,20,40]]]}};
+GTPL.ball={A:GTPL.sprung.A,B:GTPL.sprung.B,C:['Explosivkraft und Schultern',GTPL.sprung.C[1].concat([['reardelt',2,12,15]])]};
+var GWD={2:[1,4],3:[1,3,5],4:[1,2,4,5],5:[1,2,3,5,6],6:[1,2,3,4,5,6]};
+function pickEx(tpl,eq,dayId,heavy){var used={},ex=[];
   tpl.forEach(function(t){var opts=SLOT[t[0]];for(var i=0;i<opts.length;i++){var need=opts[i][1]?opts[i][1].split(' '):[];
-    if(used[opts[i][0]]||!need.every(function(k){return eq[k]}))continue;used[opts[i][0]]=1;ex.push({id:slug(opts[i][0])+'-'+id,name:opts[i][0],sets:t[1],lo:t[2],hi:t[3]});break}});
-  return{id:id,name:meta[0],short:meta[1],c:meta[2],focus:meta[3],weekdays:sp[1].slice(),ex:ex}})}
+    if(used[opts[i][0]]||!need.every(function(k){return eq[k]}))continue;used[opts[i][0]]=1;var hv=heavy&&HEAVY[t[0]];
+    ex.push({id:slug(opts[i][0])+'-'+dayId,name:opts[i][0],sets:hv?4:t[1],lo:hv?3:t[2],hi:hv?6:t[3]});break}});return ex}
+function buildPlan(n,eq,goal){var g=GTPL[goal];
+  if(g){var keys=['A','B','C'].slice(0,Math.min(3,n)),wd=GWD[n];
+    return keys.map(function(k,i){var id='s'+k.toLowerCase();return{id:id,name:'Einheit '+k,short:k,c:['push','pull','legs'][i],focus:g[k][0],
+      weekdays:wd.filter(function(_,j){return j%keys.length===i}),ex:pickEx(g[k][1],eq,id,false)}})}
+  return SPLIT[n].map(function(sp){var id=sp[0],meta=DAYMETA[id];
+    return{id:id,name:meta[0],short:meta[1],c:meta[2],focus:meta[3],weekdays:sp[1].slice(),ex:pickEx(TPL[id==='lower'?'legs':id],eq,id,goal==='kraft')}})}
+function splitInfo(n,goal){if(!n)return'Tippe eine Zahl an.';if(!GTPL[goal])return SPLITINFO[n]+(goal==='kraft'?', Grundübungen schwer mit 3 bis 6 Wiederholungen':'');
+  return n+' Tage: Einheiten '+(n===2?'A und B':'A, B und C')+(n>3?' im Wechsel':'')}
 function col(d){return d.c||(['push','pull','legs'].indexOf(d.id)>=0?d.id:'c4')}
 
 /* ---------- Zustand ---------- */
 var S=(function(){try{var raw=localStorage.getItem(KEY);if(raw){var o=JSON.parse(raw);if(o&&o.config&&o.config.days)return o}}catch(e){}return null})()
   ||{config:defaults(),months:{},dirty:{}};
 if(!S.months)S.months={};if(!S.dirty)S.dirty={};
-var view={tab:'heute',date:todayIso(),day:null,exSel:null,metric:'top',extra:{},lastSet:0,setup:null,planMsg:''};
+var view={newPlan:false,newName:'',tab:'heute',date:todayIso(),day:null,exSel:null,metric:'top',extra:{},lastSet:0,setup:null,planMsg:''};
 
+function plans(){var c=S.config;if(!c.plans){c.plans=[];if(c.days&&c.days.length){var id=rid();c.plans.push({id:id,name:'Mein Plan'});c.planId=id}}return c.plans}
+function activePlan(){var id=S.config.planId;return plans().filter(function(p){return p.id===id})[0]||null}
+function stash(){var a=activePlan();if(a){a.days=S.config.days;a.goal=S.config.goal;a.perWeek=S.config.perWeek;a.eq=S.config.eq}}
+function loadPlan(p){S.config.planId=p.id;S.config.days=p.days||[];S.config.goal=p.goal;S.config.perWeek=p.perWeek;S.config.eq=p.eq;delete p.days;S.config.restWeeks={}}
+function newPlan(name,days,meta){stash();var p={id:rid(),name:name,days:days,goal:meta.goal,perWeek:meta.perWeek,eq:meta.eq};plans().push(p);loadPlan(p);S.config.v=2}
+function filled(c){return!!(c&&((c.days&&c.days.length)||(c.plans||[]).some(function(p){return p.days&&p.days.length})))}
+function otherEx(fn){(S.config.plans||[]).forEach(function(p){if(p.id!==S.config.planId&&p.days)p.days.forEach(function(d){d.ex.forEach(function(e){fn(e,p)})})})}
 function retireAll(){var rt=S.config.retired||(S.config.retired=[]);(S.config.days||[]).forEach(function(d){d.ex.forEach(function(e){if(hasHistory(e.id)&&!rt.some(function(x){return x.id===e.id}))rt.push({id:e.id,name:e.name})})})}
 function saveLocal(){try{localStorage.setItem(KEY,JSON.stringify(S))}catch(e){}}
 function touch(key){var o=key==='config'?S.config:S.months[key];if(!o)return;o.t=Date.now();S.dirty[key]=1;saveLocal();scheduleFlush()}
@@ -339,6 +398,7 @@ function bestE1(exId,exceptDate,exceptIdx){var b=0;sessions().forEach(function(p
 function isoWeek(s){var d=parse(s);d.setDate(d.getDate()+3-(d.getDay()+6)%7);var w1=new Date(d.getFullYear(),0,4);
   return 1+Math.round(((d-w1)/864e5-3+(w1.getDay()+6)%7)/7)}
 function exName(id){for(var i=0;i<S.config.days.length;i++){var e=S.config.days[i].ex.filter(function(x){return x.id===id})[0];if(e)return e.name}
+  var o=null;otherEx(function(e){if(!o&&e.id===id)o=e});if(o)return o.name;
   var r=(S.config.retired||[]).filter(function(x){return x.id===id})[0];return r?r.name:id}
 function proteinOf(date){var m=month(date);return m&&m.p[date]?m.p[date]:[]}
 function proteinSum(date){return proteinOf(date).reduce(function(t,x){return t+x.g},0)}
@@ -429,14 +489,26 @@ var storageOK=(function(){try{localStorage.setItem('trainingslog.test','1');var 
 function topNotes(){var h=auth?'':'<p class="note">Nicht angemeldet, deine Einträge liegen nur auf diesem Gerät. <a class="link" href="#plan">Anmelden</a></p>';
   if(!storageOK)h+='<div class="card stack hint"><p><b>Dieser Browser speichert nichts dauerhaft.</b></p><p class="note">Das passiert zum Beispiel in einem privaten Tab. Öffne die App in einem normalen Tab oder über das Icon auf dem Home-Bildschirm.</p></div>';
   return h}
-function wizard(){var su=view.setup||(view.setup={n:S.config.perWeek||0,eq:JSON.parse(JSON.stringify(S.config.eq||{}))});
-  return'<div class="card stack"><h2 class="sect">Trainingsplan-Generator</h2><p class="note">Zwei Angaben, daraus entsteht ein Plan. Danach kannst du jede Übung ändern.'+(S.config.days.length?' Dein jetziger Plan wird dabei ersetzt, deine Einträge im Verlauf bleiben.':'')+'</p>'+
+function wizard(){var su=view.setup||(view.setup={n:0,goal:'muskel',eq:JSON.parse(JSON.stringify(S.config.eq||{}))});
+  return'<h2 class="q">Wofür trainierst du?</h2><div class="eq">'+GOALS.map(function(g){return'<button data-act="sugoal" data-g="'+g[0]+'" aria-pressed="'+(su.goal===g[0])+'">'+g[1]+'</button>'}).join('')+'</div>'+
+    (GTPL[su.goal]?'<p class="note">Der Plan ergänzt dein Training in der Sportart, er ersetzt es nicht. Bei Übungen ohne Gewicht lässt du das Gewichtsfeld leer.</p>':'')+
     '<h2 class="q">Wie oft pro Woche willst du trainieren?</h2><div class="seg">'+[2,3,4,5,6].map(function(n){return'<button data-act="sun" data-n="'+n+'" aria-pressed="'+(su.n===n)+'">'+n+' ×</button>'}).join('')+'</div>'+
-    '<p class="note">'+(su.n?SPLITINFO[su.n]:'Tippe eine Zahl an.')+'</p>'+
+    '<p class="note">'+splitInfo(su.n,su.goal)+'</p>'+
     '<h2 class="q">Was gibt es in deinem Gym?</h2><div class="eq">'+EQ.map(function(e){return'<button data-act="sueq" data-k="'+e[0]+'" aria-pressed="'+!!su.eq[e[0]]+'">'+e[1]+'</button>'}).join('')+'</div>'+
     '<div><button class="link" data-act="sueqall">Alles auswählen</button></div>'+
     '<p class="note">Fehlt ein Gerät, bekommst du an der Stelle eine Übung mit dem, was da ist, oder mit dem eigenen Körpergewicht.</p>'+
-    '<div><button class="btn" data-act="mkplan"'+(su.n?'':' disabled')+'>Plan erzeugen</button></div></div>'}
+    '<div class="rowbtns"><button class="btn" data-act="mkplan"'+(su.n?'':' disabled')+'>Plan erzeugen</button><button class="btn sec" data-act="plcancel">Abbrechen</button></div>'}
+function plansCard(){var ps=plans(),h='<div class="card stack"><h2 class="sect">Trainingspläne</h2>';
+  if(!ps.length)h+='<p class="note">Noch kein Plan gespeichert.</p>';
+  ps.forEach(function(p){var on=p.id===S.config.planId,n=(on?S.config.days:(p.days||[])).length;
+    h+='<button class="plbtn" data-act="pluse" data-id="'+p.id+'" aria-pressed="'+on+'"><span><b>'+esc(p.name||'Plan')+'</b><small>'+n+(n===1?' Trainingstag':' Trainingstage')+'</small></span>'+(on?'<span class="pill good">Aktiv</span>':'<span class="pill">Wechseln</span>')+'</button>'});
+  if(ps.length>1)h+='<p class="note">Tippe einen Plan an, um zu ihm zu wechseln. Alle Pläne und deine Einträge bleiben gespeichert.</p>';
+  h+=(view.newPlan?'':'<div><button class="btn" data-act="plnew">Neuer Plan</button></div>')+'</div>';
+  if(view.newPlan)h+='<div class="card stack"><h2 class="sect">Neuer Plan</h2>'+
+    '<label class="lab" for="plName">Name des Plans<input class="field" id="plName" value="'+esc(view.newName||'')+'" placeholder="z. B. Sommer, Sprungkraft" autocomplete="off"></label>'+
+    '<div><button class="btn sec" data-act="plempty">Leer anlegen und selbst eintragen</button></div>'+
+    '<h2 class="sect" style="font-size:20px;margin-top:6px">Oder erzeugen lassen</h2>'+wizard()+'</div>';
+  return h}
 function dayText(date){
   var s=sess(date),day=dayById(pickDay(date)),L=[],tot={n:0,r:0,v:0};
   L.push('Trainingslog – '+new Intl.DateTimeFormat('de-DE',{weekday:'long',day:'numeric',month:'long',year:'numeric'}).format(parse(date)));
@@ -455,7 +527,7 @@ function dayText(date){
   return L.join('\n')}
 function renderToday(){
   if(!S.config.days.length){document.body.dataset.day='pull';$('#view').innerHTML=topNotes()+dateBar()+weekStrip()+
-    '<div class="card stack"><h1 class="sect">Noch kein Trainingsplan</h1><p class="note">Dein Kalender ist leer. Im Tab Plan trägst du deine Trainingstage selbst ein oder nutzt den Generator.</p><div><a class="btn" href="#plan" style="text-decoration:none;display:inline-block">Zum Plan</a></div></div>';return}
+    '<div class="card stack"><h1 class="sect">Noch kein Trainingsplan</h1><p class="note">Dein Kalender ist leer. Im Tab Plan legst du über „Neuer Plan“ einen an.</p><div><a class="btn" href="#plan" style="text-decoration:none;display:inline-block">Zum Plan</a></div></div>';return}
   if(view.day===null)view.day=pickDay(view.date);
   var day=view.day?dayById(view.day):null,s=sess(view.date);
   document.body.dataset.day=day?col(day):'pull';
@@ -499,8 +571,25 @@ function renderStats(){
     (weeks.some(function(w){return w.v>0})?barChart(weeks,0,'kg')+'<p class="note">Gewicht × Wiederholungen aller abgehakten Sätze, in kg.</p>'
       :'<p class="empty">Nach deinem ersten abgehakten Satz erscheint hier dein Wochenvolumen.</p>')+'</div>';
 
+  var first={},last={},cnt={};
+  function topW(s,id){var a=doneOf(s,id).filter(function(x){return x.w>0});return a.length?Math.max.apply(null,a.map(function(x){return x.w})):null}
+  all.forEach(function(p){for(var id in p[1].sets||{})if(topW(p[1],id)!=null)cnt[id]=(cnt[id]||0)+1});
+  var idx=[];all.forEach(function(p){var any=false;for(var id in p[1].sets||{}){if((cnt[id]||0)<2)continue;var w=topW(p[1],id);if(w==null)continue;if(!first[id])first[id]={w:w,d:p[0]};last[id]={w:w,d:p[0]};any=true}
+    if(any){var ids=Object.keys(first),sm=0;ids.forEach(function(id){sm+=last[id].w/first[id].w-1});idx.push({d:p[0],y:Math.round(sm/ids.length*1000)/10})}});
+  var prog=Object.keys(first).map(function(id){return{id:id,a:first[id].w,b:last[id].w,pct:Math.round((last[id].w/first[id].w-1)*1000)/10}}).sort(function(x,y){return y.pct-x.pct});
+  function sg(v){return(v>0?'+':'')+fmt(v)}
+  function cl(v){return v>0?'up':v<0?'down':'flat'}
+  h+='<div class="card stack"><h2 class="sect">Steigerung</h2>';
+  if(!prog.length)h+='<p class="empty">Sobald du eine Übung an zwei Tagen mit Gewicht eingetragen hast, siehst du hier deine Steigerung.</p>';
+  else{var tot=idx[idx.length-1].y;
+    h+='<div class="gain"><b class="'+cl(tot)+'">'+sg(tot)+' %</b><span>Gewicht insgesamt, im Schnitt über '+prog.length+(prog.length===1?' Übung':' Übungen')+' seit dem '+shortDate(idx[0].d)+'</span></div>'+
+      (idx.length>1?lineChart(idx,'%'):'')+
+      '<ul class="hist gl">'+prog.map(function(r){return'<li><span>'+esc(exName(r.id))+'<small>'+fmt(r.a)+' → '+fmt(r.b)+' kg</small></span><span class="dl '+cl(r.pct)+'">'+sg(Math.round((r.b-r.a)*100)/100)+' kg<small>'+sg(r.pct)+' %</small></span></li>'}).join('')+'</ul>'+
+      '<p class="note">Verglichen wird der schwerste Satz vom ersten und vom letzten Trainingstag jeder Übung.</p>'}
+  h+='</div>';
   var withData={};all.forEach(function(p){for(var id in p[1].sets||{})if(doneOf(p[1],id).length)withData[id]=1});
   var opts=[];S.config.days.forEach(function(d){d.ex.forEach(function(e){if(!e.archived||withData[e.id])opts.push({id:e.id,name:e.name+(e.archived?' (entfernt)':''),day:d.name})})});
+  otherEx(function(e,pl){if(withData[e.id]&&!opts.some(function(o){return o.id===e.id}))opts.push({id:e.id,name:e.name,day:pl.name})});
   (S.config.retired||[]).forEach(function(r){if(withData[r.id]&&!opts.some(function(o){return o.id===r.id}))opts.push({id:r.id,name:r.name,day:'Früher'})});
   if(!view.exSel||!opts.some(function(o){return o.id===view.exSel})){var f=opts.filter(function(o){return withData[o.id]})[0]||opts[0];view.exSel=f?f.id:null}
   h+='<div class="card stack"><h2 class="sect">Übung</h2>';
@@ -522,6 +611,8 @@ function renderStats(){
       var lr=rows[rows.length-1];
       h+='<dl class="kv">'+(body?'<dt>Meiste Wiederholungen in einem Satz</dt><dd>'+Math.max.apply(null,flat.map(function(x){return x.r}))+'</dd>'
           :'<dt>Schwerster Satz</dt><dd>'+fmt(bw.w)+' kg × '+bw.r+'</dd><dt>Bestes geschätztes 1RM</dt><dd>'+fmt(Math.round(Math.max.apply(null,flat.map(e1))*10)/10)+' kg</dd>')+
+        (!body&&rows.length>1?(function(){var a0=Math.max.apply(null,rows[0].a.map(function(x){return x.w})),b0=Math.max.apply(null,rows[rows.length-1].a.map(function(x){return x.w}));
+          return a0>0?'<dt>Steigerung seit dem ersten Eintrag</dt><dd class="'+cl(b0-a0)+'">'+sg(Math.round((b0-a0)*100)/100)+' kg ('+sg(Math.round((b0/a0-1)*1000)/10)+' %)</dd>':''})():'')+
         '<dt>Einheiten</dt><dd>'+rows.length+'</dd><dt>Letzte Einheit ('+shortDate(lr.d)+')</dt><dd>'+lr.a.map(function(x){return fmt(x.w)+'×'+x.r}).join(' · ')+'</dd></dl>';
       if(metric==='e1')h+='<p class="note">Schätzung nach der Epley-Formel: Gewicht × (1 + Wdh. ÷ 30).</p>';
       if(body)h+='<p class="note">Ohne Zusatzgewicht eingetragen, daher Wiederholungen pro Einheit.</p>';
@@ -562,9 +653,10 @@ function renderProtein(){
 }
 
 function renderPlan(){
-  var h=kontoCard()+'<h1 class="sect">Trainingsplan</h1><p class="note">Das ist deine Standardwoche. Einen einzelnen Ruhetag verlegst du im Tab Training.</p>';
+  var h=kontoCard()+plansCard(),ap=activePlan();
   if(view.planMsg){h+='<p class="tip">'+esc(view.planMsg)+'</p>';view.planMsg=''}
-  if(!S.config.days.length)h+='<p class="note">Noch kein Plan. Leg einen Trainingstag an oder nutze den Generator darunter.</p>';
+  if(ap)h+='<h1 class="sect">Aktiver Plan</h1><label class="lab" for="plRename">Name des Plans<input class="field" id="plRename" value="'+esc(ap.name||'')+'"></label>'+
+    '<p class="note">Das ist deine Standardwoche. Einen einzelnen Ruhetag verlegst du im Tab Training.</p>'+(S.config.days.length?'':'<p class="note">Dieser Plan hat noch keine Trainingstage.</p>');
   S.config.days.forEach(function(d){
     h+='<section class="card pday" data-id="'+d.id+'" data-day="'+col(d)+'"><h2>'+esc(d.name||'Neuer Tag')+'</h2>'+
       '<label class="lab" for="dn-'+d.id+'">Name des Trainingstags<input class="field" id="dn-'+d.id+'" data-pf="name" value="'+esc(d.name)+'" placeholder="z. B. Push, Oberkörper, Tag A"></label>'+
@@ -581,7 +673,7 @@ function renderPlan(){
         '<button class="ib" data-act="exdown" aria-label="Nach unten"'+(i===exs.length-1?' disabled':'')+'>↓</button>'+
         '<button class="ib" data-act="exdel" aria-label="Übung entfernen">×</button></div></div>'});
     h+='<div class="rowbtns"><button class="ghost" data-act="exadd">+ Übung</button><button class="ghost" data-act="daydel">Tag löschen</button></div></section>'});
-  h+='<div><button class="btn" data-act="dayadd">+ Trainingstag</button></div>'+wizard();
+  if(ap)h+='<div class="rowbtns"><button class="btn" data-act="dayadd">+ Trainingstag</button><button class="ghost" data-act="pldel">Plan löschen</button></div>';
   h+='<div class="card stack"><h2 class="sect">Einstellungen</h2>'+
     '<label class="lab" for="stepSel">Schritt der Plus- und Minus-Tasten beim Gewicht<select id="stepSel">'+[1,1.25,2.5,5].map(function(v){return'<option value="'+v+'"'+(S.config.step===v?' selected':'')+'>'+fmt(v)+' kg</option>'}).join('')+'</select></label>'+
     '</div><div class="card stack"><h2 class="sect">Sicherung</h2>'+
@@ -658,17 +750,26 @@ document.addEventListener('click',function(ev){
       if(arr[i]&&arr[i].d&&$('#rest')&&view.date===todayIso())armRest();else{cancelBeep();restAlerted=true}break;
     case'addset':card=b.closest('.ex');exId=card.dataset.ex;var fx=findEx(exId);s=sess(view.date);
       view.extra[exId]=Math.max(fx?fx.ex.sets:0,s&&s.sets[exId]?s.sets[exId].length:0,view.extra[exId]||0)+1;renderToday();break;
-    case'dayadd':var nd={id:rid(),name:'',c:['push','pull','legs','c4','c5'][S.config.days.length%5],focus:'',weekdays:[],ex:[]};S.config.days.push(nd);S.config.v=2;touch('config');view.day=null;
+    case'dayadd':var nd={id:rid(),name:'',c:['push','pull','legs','c4','c5'][S.config.days.length%5],focus:'',weekdays:[],ex:[]};if(!activePlan()){var np={id:rid(),name:'Mein Plan'};plans().push(np);S.config.planId=np.id}S.config.days.push(nd);S.config.v=2;touch('config');view.day=null;
       view.focusId='dn-'+nd.id;if(view.tab!=='plan')location.hash='#plan';else renderPlan();break;
     case'daydel':if(b.dataset.sure!=='1'){b.dataset.sure='1';b.textContent='Wirklich löschen?';setTimeout(function(){if(b.isConnected){b.dataset.sure='';b.textContent='Tag löschen'}},3000);break}
       var did=b.closest('.pday').dataset.id;retireAll();S.config.days=S.config.days.filter(function(d){return d.id!==did});touch('config');view.day=null;renderPlan();break;
+    case'sugoal':view.setup.goal=b.dataset.g;renderPlan();break;
     case'sun':view.setup.n=+b.dataset.n;renderPlan();break;
     case'sueq':view.setup.eq[b.dataset.k]=!view.setup.eq[b.dataset.k];renderPlan();break;
     case'sueqall':var allOn=EQ.every(function(e){return view.setup.eq[e[0]]});EQ.forEach(function(e){view.setup.eq[e[0]]=!allOn});renderPlan();break;
-    case'mkplan':if(!view.setup||!view.setup.n)break;
-      if(S.config.days.length&&b.dataset.sure!=='1'){b.dataset.sure='1';b.textContent='Ersetzt deinen Plan. Nochmal tippen';setTimeout(function(){if(b.isConnected){b.dataset.sure='';b.textContent='Plan erzeugen'}},3000);break}
-      retireAll();S.config.days=buildPlan(view.setup.n,view.setup.eq);S.config.eq=view.setup.eq;S.config.perWeek=view.setup.n;S.config.v=2;S.config.restWeeks={};
-      touch('config');view.day=null;view.planMsg='Dein Plan steht. Übungen, Sätze und Tage kannst du hier anpassen.';renderPlan();$('#main').scrollTop=0;break;
+    case'plnew':view.newPlan=true;view.newName='';view.setup=null;renderPlan();break;
+    case'plcancel':view.newPlan=false;view.setup=null;renderPlan();break;
+    case'pluse':if(b.dataset.id===S.config.planId)break;var tp=plans().filter(function(x){return x.id===b.dataset.id})[0];if(!tp)break;
+      stash();loadPlan(tp);touch('config');view.day=null;view.planMsg='Aktiv ist jetzt „'+(tp.name||'Plan')+'“.';renderPlan();break;
+    case'plempty':newPlan((view.newName||'').trim()||('Plan '+(plans().length+1)),[],{});var fd={id:rid(),name:'',c:'push',focus:'',weekdays:[],ex:[]};S.config.days.push(fd);
+      touch('config');view.day=null;view.newPlan=false;view.setup=null;view.focusId='dn-'+fd.id;renderPlan();break;
+    case'pldel':if(b.dataset.sure!=='1'){b.dataset.sure='1';b.textContent='Plan wirklich löschen?';setTimeout(function(){if(b.isConnected){b.dataset.sure='';b.textContent='Plan löschen'}},3000);break}
+      retireAll();var did2=S.config.planId;S.config.plans=plans().filter(function(x){return x.id!==did2});S.config.planId=null;S.config.days=[];
+      if(S.config.plans.length)loadPlan(S.config.plans[0]);touch('config');view.day=null;renderPlan();$('#main').scrollTop=0;break;
+    case'mkplan':if(!view.setup||!view.setup.n)break;var gl=GOALS.filter(function(g){return g[0]===view.setup.goal})[0];
+      newPlan((view.newName||'').trim()||((gl?gl[1]:'Plan')+', '+view.setup.n+' × pro Woche'),buildPlan(view.setup.n,view.setup.eq,view.setup.goal),{goal:view.setup.goal,perWeek:view.setup.n,eq:view.setup.eq});
+      touch('config');view.day=null;view.newPlan=false;view.setup=null;view.planMsg='Dein neuer Plan steht und ist aktiv. Übungen, Sätze und Tage kannst du hier anpassen.';renderPlan();$('#main').scrollTop=0;break;
     case'xday':var xt=dayText(view.date),xn=$('#xNote'),fn='training-'+view.date+'.txt';
       if(STANDALONE){try{var xf=new File([xt],fn,{type:'text/plain'});if(navigator.canShare&&navigator.canShare({files:[xf]})){navigator.share({files:[xf]}).catch(function(){});break}}catch(e){}
         var xa=document.createElement('a');xa.href=URL.createObjectURL(new Blob([xt],{type:'text/plain;charset=utf-8'}));xa.download=fn;document.body.appendChild(xa);xa.click();xa.remove();xn.textContent='Als '+fn+' gespeichert.';break}
@@ -718,6 +819,7 @@ document.addEventListener('click',function(ev){
 document.addEventListener('change',function(ev){
   var t=ev.target;
   if(t.dataset.f){var row=t.closest('.set');if(row){var v=num(t.value);t.value=fin(v==null?null:Math.max(0,t.dataset.f==='r'?Math.round(v):v));storeRow(row)}return}
+  if(t.id==='plRename'){var rp=activePlan();if(rp){rp.name=t.value.trim()||'Plan';touch('config');renderPlan()}return}
   if(t.id==='impFile'){var f0=t.files&&t.files[0];if(!f0)return;var rd=new FileReader();rd.onload=function(){var o=null;try{o=JSON.parse(rd.result)}catch(e){}
       var n=$('#backupNote'),g=$('#impGo');if(o&&o.config&&Array.isArray(o.config.days)){pendingImport=o;if(g)g.hidden=false;if(n)n.textContent='Datei gelesen. Mit dem Knopf ersetzt du alle Einträge auf diesem Gerät.'}
       else{pendingImport=null;if(g)g.hidden=true;if(n)n.textContent='Das ist keine gültige Trainingslog-Sicherung.'}};rd.readAsText(f0);return}
@@ -732,6 +834,7 @@ document.addEventListener('change',function(ev){
       t.value=n;var lo=document.getElementById('l-'+fe.ex.id),hi=document.getElementById('h-'+fe.ex.id);if(lo)lo.value=fe.ex.lo;if(hi)hi.value=fe.ex.hi}
     touch('config')}
 });
+document.addEventListener('input',function(ev){if(ev.target.id==='plName')view.newName=ev.target.value});
 document.addEventListener('focusin',function(ev){var t=ev.target;if(t.tagName==='INPUT'&&(t.dataset.f||t.dataset.xf)&&t.select){try{t.select()}catch(e){}}});
 document.addEventListener('keydown',function(ev){if(ev.key==='Enter'&&ev.target.tagName==='INPUT'){ev.preventDefault();if(ev.target.id==='pGrams'||ev.target.id==='pLabel'){var b=document.querySelector('[data-act="pcustom"]');if(b)b.click()}else if(ev.target.id==='accPw'||ev.target.id==='accMail'){var lb=document.querySelector('[data-act="login"]');if(lb)lb.click()}else ev.target.blur()}});
 
@@ -763,7 +866,7 @@ function pull(){
     snap.docs.forEach(function(doc){var data=doc.data();if(!data)return;var key=doc.id==='config'?'config':doc.id.indexOf('m-')===0?doc.id.slice(2):null;if(!key)return;
       seen[key]=1;var local=key==='config'?S.config:S.months[key];
       var take=!local||!S.dirty[key]||(data.t||0)>(local.t||0);
-      if(key==='config'){var lh=!!(local&&local.days&&local.days.length),rh=!!(data.days&&data.days.length);if(lh&&!rh)take=false;else if(!lh&&rh)take=true}
+      if(key==='config'){var lh=filled(local),rh=filled(data);if(lh&&!rh)take=false;else if(!lh&&rh)take=true}
       if(!take){S.dirty[key]=1;return}
       {var copy=JSON.parse(JSON.stringify(data));
         if(key==='config'){if(copy.days)S.config=copy}else S.months[key]=copy;delete S.dirty[key];changed=true}
